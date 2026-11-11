@@ -23,7 +23,50 @@ All route paths, boarding stops, vehicles, and arrival estimates are illustrativ
 
 ## Local use
 
-Serve `dist/` with any static web server. There is no build step. All runtime assets are local; opening the app does not request any third-party map tiles, geocoding, routing, or AI service. Source links open only when clicked.
+
+## Getting Started (Cursor / VS Code)
+
+### Prerequisites
+Install the following:
+- Node.js and npm
+- Python 3
+- Cursor or Visual Studio Code
+
+### 1. Clone the Repository
+Open a terminal and run:
+
+git clone https://github.com/areaton1/campus-ride.git
+cd campus-ride
+
+### 2. Install Dependencies
+Run:
+
+npm install
+
+Note: The application has no external npm dependencies.
+This step initializes the npm project.
+
+### 3. Start the Application
+Run:
+
+npm run dev
+
+### 4. Open the Application
+Open a browser and navigate to:
+
+http://localhost:8000
+
+The Campus Ride application should now be running.
+
+### 5. Stop the Application
+Press Ctrl + C in the terminal.
+
+## Notes
+- The app runs locally using a Python 3 web server.
+- No API keys or external services are required.
+- The bus routes and tracking data are simulated.
+- The application files are located in the dist/ folder.
+
 
 ## Validation
 
