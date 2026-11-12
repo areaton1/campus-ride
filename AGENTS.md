@@ -15,7 +15,7 @@ Brownfield MIS 430 academic prototype: Uber/Lyft-style UA campus-bus redesign of
 - Before proposing or building a feature: check SOW scope, backlog/user stories, future-state process model impact, doc updates needed, new dependencies, and course deadline. Do not silently edit approved academic docs — propose changes and wait for approval. If provided docs conflict, report the conflict; do not pick a side.
 - BMAD supports analysis, planning, implementation, review, testing, and doc alignment in the lifecycle — demonstrate useful contribution, not install-only. Do not duplicate existing MIS 430 deliverables or treat BMAD’s greenfield defaults as permission to discard established requirements.
 - Do not reassign team roles (Ashton: UI/UX & prototype; Tyler: data & systems; Brett: technical/architecture; Jade: project manager). Agents assist; the team owns decisions and academic deliverables.
-- Git: `main` is the stable baseline; keep BMAD integration on `setup/bmad-integration` until approved merge; use separate feature branches for app work; no direct commits to `main` for experimental work; no push, merge, or destructive Git without explicit approval. Inspect-only Git is fine.
+- Git: `main` is the stable baseline; use task-specific feature branches for development; review changes before merging into `main`; no direct commits to `main` for experimental work; no push, merge, or destructive Git without explicit approval. Inspect-only Git is fine.
 - Do not skip ahead to feature implementation before requirements and planning decisions are approved. Do not modify `dist/` during BMAD setup/context-only work.
 
 ## Where things are
