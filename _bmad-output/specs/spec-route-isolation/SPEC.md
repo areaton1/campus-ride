@@ -21,8 +21,8 @@ sources:
   - **intent:** Student can select one bus route and see only that route’s line, underlay, stops, and buses on the map.
   - **success:** Unrelated route paths, underlays, stop marks, and bus markers are fully hidden (`display: none` or equivalent), not merely dimmed; the selected route remains emphasized.
 - **CAP-2**
-  - **intent:** Student can restore the full multi-route overview.
-  - **success:** Re-selecting the active route on the Routes list, or using Show All Routes, clears map focus and shows every route/bus again.
+  - **intent:** Student can restore the full multi-route overview when no trip is active.
+  - **success:** Re-selecting the active route on the Routes list, or using Show All Routes, clears map focus and shows every route/bus again. While a trip is active, Show All is hidden and the Routes panel states that the trip route remains highlighted (AD-ISO-5).
 - **CAP-3**
   - **intent:** Student can select a recommended itinerary and have the map focus that itinerary’s route without changing plan calculation.
   - **success:** `computePlans` / `plans()` output unchanged; map focus follows the chosen option’s `route.id`; Follow This Bus, walking paths, ETAs, and trip tracking still work.
@@ -59,4 +59,4 @@ On Routes or Ride results, picking one route leaves a single highlighted corrido
 
 ## Architecture decisions (cited)
 
-See `_bmad-output/planning-artifacts/decision-log.md` entries AD-ISO-1 … AD-ISO-4.
+See `_bmad-output/planning-artifacts/decision-log.md` entries AD-ISO-1 … AD-ISO-5.
