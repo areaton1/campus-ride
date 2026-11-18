@@ -1,0 +1,61 @@
+'use strict';
+/** Headless Feature 2 POI contract checks (AD-POI-1/4/5). Companion to tests/routing.cjs. */
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const network=fs.readFileSync('dist/network.js','utf8'),app=fs.readFileSync('dist/app.js','utf8');
+const el=()=>({focus(){},classList:{contains:()=>true,add(){},remove(){},toggle(){}},style:{},textContent:'',innerHTML:'',dataset:{},setAttribute(){},getBoundingClientRect:()=>({width:800,height:600,top:0,left:0,height:600}),querySelector:()=>null,querySelectorAll:()=>[],append(){},addEventListener(){},remove(){}});
+const documentStub={querySelector:()=>el(),querySelectorAll:()=>[],createElementNS:()=>el(),createElement:()=>el(),addEventListener(){},body:{append(){}}};
+const context=vm.createContext({assert,console,document:documentStub,window:{},localStorage:{getItem:()=>null},matchMedia:()=>({matches:false})});
+vm.runInContext(network+'\n'+app.slice(0,app.indexOf('const panel=$')),context);
+vm.runInContext(`
+assert.equal(places.length,14,'expected 14 searchable places');
+for(const p of places){
+  assert(p.visual,'missing visual for '+p.id);
+  assert(Number.isFinite(p.visual.x)&&Number.isFinite(p.visual.y),'non-finite visual for '+p.id);
+  assert(Number.isFinite(p.x)&&Number.isFinite(p.y),'entrance sync missing for '+p.id);
+  assert(p.visual.x!==p.x||p.visual.y!==p.y,'visual glued to entrance for '+p.id);
+}
+assert(places.find(p=>p.id==='serc').visual);
+assert(places.find(p=>p.id==='lakeside').visual);
+const uncertain=places.filter(p=>p.visual.check).map(p=>p.id).sort();
+assert.deepEqual(uncertain,['bryce','paty','presidential','ridgecrest','serc']);
+globalThis.__uncertain=uncertain;
+renderPanel=function(){};
+centerOnPlaces=function(){};
+toast=function(){};
+announce=function(){};
+revealSheet=function(){};
+revealPoi=function(){};
+`,context);
+vm.runInContext('var panel={scrollTop:0};\n'+app.slice(app.indexOf('function selectPoi'),app.indexOf('/** Mobile: keep a tapped marker')),context);
+vm.runInContext(`
+const bidgood=places.find(p=>p.id==='bidgood');
+const gorgas=places.find(p=>p.id==='gorgas');
+state.origin=places.find(p=>p.id==='presidential');
+state.destination=null;
+state.trip=null;
+state.selectedPoi=null;
+const origin0=state.origin,dest0=state.destination;
+selectPoi(bidgood);
+assert.equal(state.selectedPoi,bidgood);
+assert.equal(state.origin,origin0);
+assert.equal(state.destination,dest0);
+poiSetStart();
+assert.equal(state.origin,bidgood);
+assert.equal(state.destination,dest0);
+assert.equal(state.selectedPoi,null);
+selectPoi(gorgas);
+poiGetDirections();
+assert.equal(state.destination,gorgas);
+assert.equal(state.origin,bidgood);
+assert.equal(state.selectedPoi,null);
+state.trip={route:{id:'campus'},bus:{id:'101'}};
+const lockedOrigin=state.origin,lockedDest=state.destination;
+selectPoi(places.find(p=>p.id==='shelby'));
+assert.equal(state.selectedPoi.id,'shelby');
+poiGetDirections();
+poiSetStart();
+assert.equal(state.origin,lockedOrigin);
+assert.equal(state.destination,lockedDest);
+assert.equal(state.selectedPoi.id,'shelby');
+console.log(JSON.stringify({places:places.length,uncertain:globalThis.__uncertain,visualSeparated:true,previewOk:true,tripLockOk:true}));
+`,context);

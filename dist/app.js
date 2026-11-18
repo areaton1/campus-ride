@@ -29,13 +29,23 @@ routes.push(
  {id:'coleman',name:'Coleman Connector',color:'#ad344a',direction:'Via Coleman & South Campus',points:[[294,443],[355,449],[400,448],[399,552],[403,628],[401,685],[445,687],[488,694],[512,727],[520,766],[501,806],[445,815],[401,812],[400,748],[370,685],[320,681],[270,675],[235,671],[217,575],[248,527],[251,475],[264,442],[294,443]],stops:[{i:0,name:'Gorgas'},{i:2,name:'Transit Hub'},{i:5,name:'Bryant Drive'},{i:8,name:'Coleman North'},{i:10,name:'Coleman Coliseum'},{i:12,name:'South Campus'},{i:17,name:'Tutwiler North'},{i:18,name:'Stadium'},{i:20,name:'Bidgood'}]}
 );
 places.push({id:'coleman',name:'Coleman Coliseum',category:'Athletics · South campus',type:'building',x:503,y:780,aliases:'coleman basketball gymnastics'}, {id:'bryce',name:'Bryce Campus',category:'North-east campus',type:'building',x:585,y:254,aliases:'bryce performing arts'});
+/** POI marker anchors (AD-POI-4). Map-space points placed on the SVG `buildings` footprints
+ *  (interior points chosen by eye against the 2014 reference artwork), deliberately separate from
+ *  routing entrances. `check:true` = footprint match is uncertain. Illustrative only, not survey-verified. */
+const poiVisual={
+ presidential:{x:350,y:151,check:true},'student-center':{x:319,y:363},bidgood:{x:238,y:462},gorgas:{x:309,y:462},
+ shelby:{x:441,y:329},serc:{x:387,y:380,check:true},tutwiler:{x:226,y:702},ridgecrest:{x:213,y:282,check:true},
+ stadium:{x:198,y:623},paty:{x:291,y:295,check:true},lakeside:{x:302,y:242},rec:{x:740,y:441},
+ coleman:{x:502,y:789},bryce:{x:556,y:287,check:true}
+};
+places.forEach(p=>{p.visual=poiVisual[p.id]});
 
 CampusNetwork.apply(routes);
 places.forEach(p=>{const e=CampusNetwork.entrances[p.id];if(e){p.x=e.point[0];p.y=e.point[1];}});
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),mod=(a,b)=>((a%b)+b)%b;
 routes.forEach(r=>{let t=0;r.timeline=[];r.nodeTimes=[];r.points.forEach((p,i)=>{if(i===r.points.length-1)return;r.nodeTimes[i]=t;const next=r.points[i+1];if(r.stops.some(s=>s.i===i)){r.timeline.push({from:t,to:t+30,a:p,b:p,dwell:true,next});t+=30}const dt=Math.hypot(next[0]-p[0],next[1]-p[1])/1.3;r.timeline.push({from:t,to:t+dt,a:p,b:next,dwell:false});t+=dt});r.duration=t;r.stops.forEach(s=>{s.x=r.points[s.i][0];s.y=r.points[s.i][1];s.at=r.nodeTimes[s.i]})});
 const buses=routes.flatMap((r,ri)=>[0,1].map((v)=>({id:`${ri+1}0${v+1}`,route:r,offset:v*r.duration/2+(ri===1?58:ri*41)})));
-let state={tab:'ride',origin:places[0],destination:null,selected:null,trip:null,route:null,mapFocusRouteId:null,sim:0,speed:3,paused:matchMedia('(prefers-reduced-motion: reduce)').matches,editing:null,results:[],phase:null,followMap:false,walkPreview:false};
+let state={tab:'ride',origin:places[0],destination:null,selected:null,trip:null,route:null,mapFocusRouteId:null,selectedPoi:null,sim:0,speed:3,paused:matchMedia('(prefers-reduced-motion: reduce)').matches,editing:null,results:[],phase:null,followMap:false,walkPreview:false};
 /** Presentation-only map focus. Trip route always wins while a trip is active. */
 function effectiveMapFocus(){return state.trip?state.trip.route.id:state.mapFocusRouteId}
 let saved=[];try{saved=JSON.parse(localStorage.getItem('campus-saved')||'["student-center","bidgood"]');if(!Array.isArray(saved))saved=[];saved=saved.filter(id=>places.some(p=>p.id===id))}catch{saved=['student-center','bidgood']}
@@ -87,8 +97,27 @@ function routesContent(){
  const tip=tripLock?'Return to Ride to continue your trip, or end the trip to explore every corridor again.':'Tap a route to isolate it on the map. Tap the active route again or choose Show All Routes to restore every corridor.';
  return '<p class="eyebrow">Explore campus</p><h1>Find your way.</h1><p class="subtle" style="margin:-10px 0 24px">Six campus routes. One familiar campus.</p>'+tripNote+list+restore+'<div class="tip">'+icon('pin')+'<span>'+tip+'</span></div>';
 }
-function renderPanel(){const scroll=panel.scrollTop;$$('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===state.tab));panel.innerHTML=state.tab==='routes'?routesContent():state.tab==='saved'?savedContent():state.trip?trackingContent():state.destination?resultsContent():homeContent();bindPanel();panel.scrollTop=scroll;drawFocus()}
+const poiTypeLabels={home:'Residence hall',building:'Campus building',book:'Library'};
+/** POI info card (AD-POI-1/5). Inspect-only while a trip is active. */
+function poiCardContent(){
+ const p=state.selectedPoi,locked=!!state.trip;
+ const status=[state.origin===p?'Current starting point':'',state.destination===p?'Current destination':''].filter(Boolean).join(' · ');
+ return '<div class="poi-card" id="poi-card" tabindex="-1" role="region" aria-label="Place details: '+escapeHtml(p.name)+'">'
+  +'<div class="poi-head"><span class="place-icon">'+icon(p.type)+'</span><span class="poi-type">'+(poiTypeLabels[p.type]||'Campus location')+'</span>'
+  +'<button class="icon-button" id="poi-close" type="button" aria-label="Close place details">'+icon('close')+'</button></div>'
+  +'<h1>'+escapeHtml(p.name)+'</h1><p class="poi-category">'+escapeHtml(p.category)+'</p>'
+  +(status?'<p class="poi-status">'+status+'</p>':'')
+  +(p.visual.check?'<p class="poi-status" role="status">Uncertain footprint match · illustrative only</p>':'')
+  +(locked?'<div class="notice trip-focus-note" role="status">'+icon('info')+'<span>Trip in progress — end your trip to change your start or destination.</span></div>':'')
+  +'<div class="poi-actions"><button class="primary" id="poi-directions" type="button"'+(locked?' disabled aria-disabled="true"':'')+'>Get Directions '+icon('arrow')+'</button>'
+  +'<button class="secondary" id="poi-start" type="button"'+(locked?' disabled aria-disabled="true"':'')+'>Set as Starting Point</button></div>'
+  +'<p class="selection-note">Illustrative marker position · simulated demo data</p></div>';
+}
+function renderPanel(){const scroll=panel.scrollTop;$$('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===state.tab));if(state.selectedPoi){state.phase=state.trip?tripPhase():null;panel.innerHTML=poiCardContent();}else panel.innerHTML=state.tab==='routes'?routesContent():state.tab==='saved'?savedContent():state.trip?trackingContent():state.destination?resultsContent():homeContent();bindPanel();panel.scrollTop=scroll;drawFocus()}
 function bindPanel(){
+ $('#poi-close')?.addEventListener('click',()=>dismissPoi(true));
+ $('#poi-directions')?.addEventListener('click',poiGetDirections);
+ $('#poi-start')?.addEventListener('click',poiSetStart);
  $('#preview-walk')?.addEventListener('click',()=>{state.walkPreview=!state.walkPreview;renderPanel();centerOnPlaces();});
  $('#add-saved')?.addEventListener('submit',e=>{e.preventDefault();const id=$('#saved-place-select').value,label=$('#saved-label').value.trim();if(!places.some(p=>p.id===id))return;if(!saved.includes(id))saved.push(id);if(label)savedLabels[id]=label.slice(0,40);storeSaved();renderPanel();toast('Place saved');});
  $$('[data-edit-label]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.editLabel;const field=$(`[data-label-for="${id}"]`);savedLabels[id]=field.value.trim().slice(0,40);storeSaved();renderPanel();toast('Saved name updated');}));
@@ -108,16 +137,54 @@ function storeSaved(){try{localStorage.setItem('campus-saved',JSON.stringify(sav
 function normalize(s){return s.toLowerCase().replace(/[–—-]/g,' ').trim()}
 function showSuggestions(q){const box=$('#suggestions');if(!box)return;const query=normalize(q),matches=places.filter(p=>normalize(p.name+' '+p.aliases).includes(query));box.innerHTML=matches.length?matches.map(p=>`<button class="suggestion" data-suggestion="${p.id}"><span class="place-icon">${icon(p.type)}</span><span class="place-copy"><strong>${p.name}</strong><small>${p.category}</small></span></button>`).join(''):'<div class="notice">No matching campus location. Try “Ferg,” “Bidgood,” or “Gorgas.”</div>';box.classList.remove('hidden');box.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>choosePlace(places.find(p=>p.id===b.dataset.suggestion))))}
 function choosePlace(p){state.walkPreview=false;state[state.editing||'destination']=p;state.trip=null;state.selected=null;state.mapFocusRouteId=null;state.editing=null;renderPanel();centerOnPlaces()}
-function resetDestination(){state.walkPreview=false;state.followMap=false;state.destination=null;state.trip=null;state.selected=null;state.mapFocusRouteId=null;state.phase=null;state.tab='ride';renderPanel();panel.scrollTop=0;resetMap()}
+/** Map POI actions. Selecting only previews; endpoints change solely via the card buttons (AD-POI-1). */
+function selectPoi(p){
+ state.editing=null;state.selectedPoi=p;renderPanel();panel.scrollTop=0;
+ if(typeof revealSheet==='function')revealSheet();
+ revealPoi(p);$('#poi-card')?.focus({preventScroll:true});announce(`${p.name}. Place details open.`);
+}
+function dismissPoi(restoreFocus=false){
+ const p=state.selectedPoi;if(!p)return;
+ state.selectedPoi=null;renderPanel();
+ if(restoreFocus)$(`[data-poi="${p.id}"]`)?.focus({preventScroll:true});
+}
+function poiGetDirections(){
+ const p=state.selectedPoi;if(!p)return;
+ if(state.trip){toast('End your trip to change your destination');return}
+ state.selectedPoi=null;state.walkPreview=false;state.destination=p;state.tab='ride';state.route=null;state.trip=null;state.selected=null;state.mapFocusRouteId=null;
+ renderPanel();panel.scrollTop=0;centerOnPlaces();
+}
+function poiSetStart(){
+ const p=state.selectedPoi;if(!p)return;
+ if(state.trip){toast('End your trip to change your starting point');return}
+ state.selectedPoi=null;state.walkPreview=false;state.origin=p;state.tab='ride';state.route=null;state.trip=null;state.selected=null;state.mapFocusRouteId=null;
+ renderPanel();panel.scrollTop=0;centerOnPlaces();toast(`Starting point set to ${p.name}`);
+}
+/** Mobile: keep a tapped marker visible above the bottom sheet. */
+function revealPoi(p){
+ if(innerWidth>680)return;
+ const rect=map.getBoundingClientRect(),sheetH=$('.sidebar').getBoundingClientRect().height,visible=Math.max(100,rect.height-sheetH);
+ const sx=(p.visual.x-view.x)/view.w*rect.width,sy=(p.visual.y-view.y)/view.h*rect.height,pad=36;
+ if(sx>pad&&sx<rect.width-pad&&sy>pad+50&&sy<visible-pad)return;
+ state.followMap=false;view={...view,x:p.visual.x-view.w/2,y:p.visual.y-view.h*(visible/rect.height)/2};setView();
+}
+function resetDestination(){state.selectedPoi=null;state.walkPreview=false;state.followMap=false;state.destination=null;state.trip=null;state.selected=null;state.mapFocusRouteId=null;state.phase=null;state.tab='ride';renderPanel();panel.scrollTop=0;resetMap()}
 function announce(s){$('#announcement').textContent=s}
 function svgEl(tag,attrs={},html=''){const e=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));if(html)e.innerHTML=html;return e}
-function makeMap(){const lines=$('#route-lines');routes.forEach(r=>{const d=pathD(r.points);lines.append(svgEl('path',{d,class:'route-underlay','data-under':r.id}),svgEl('path',{d,stroke:r.color,class:'route-path','data-line':r.id}));r.stops.forEach(s=>$('#stop-markers').append(svgEl('circle',{cx:s.x,cy:s.y,r:3,stroke:r.color,class:'stop-mark','data-stop-route':r.id}))) });
- const labels=[{id:'presidential',dx:0,dy:-14,anchor:'middle',name:'Presidential Village'},{id:'student-center',dx:17,dy:0,name:'Student Center'},{id:'bidgood',dx:-9,dy:0,anchor:'end',name:'Bidgood Hall'},{id:'gorgas',dx:8,dy:10,name:'Gorgas Library'},{id:'shelby',dx:10,dy:-5,name:'Shelby Hall'},{id:'tutwiler',dx:-12,dy:5,anchor:'end',name:'Tutwiler Hall'},{id:'ridgecrest',dx:-10,dy:0,anchor:'end',name:'Ridgecrest South'},{id:'stadium',dx:-1,dy:0,anchor:'middle',name:'Bryant–Denny'},{id:'rec',dx:0,dy:0,anchor:'middle',name:'Student Recreation Center'},{id:'paty',dx:-8,dy:5,anchor:'end',name:'Paty Hall'},{id:'coleman',dx:0,dy:-10,anchor:'middle',name:'Coleman Coliseum'},{id:'bryce',dx:0,dy:-10,anchor:'middle',name:'Bryce Campus'}];
- labels.forEach(l=>{const p=places.find(x=>x.id===l.id);const g=svgEl('g',{class:'map-place',role:'button',tabindex:0,'aria-label':`Plan a trip to ${p.name}`});g.append(svgEl('text',{x:p.x+l.dx,y:p.y+l.dy,'text-anchor':l.anchor||'start',class:'map-label major'},l.name));g.addEventListener('click',()=>{if(didPan)return;state.destination=p;state.trip=null;state.selected=null;state.mapFocusRouteId=null;state.tab='ride';renderPanel();panel.scrollTop=0});g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();g.dispatchEvent(new Event('click'))}});$('#place-labels').append(g)});
- const staticLabels=[['THE QUAD',304,510,'park',0],['UNIVERSITY BLVD',511,592,'road',11],['CAMPUS DRIVE EAST',620,414,'road',-12],['HACKBERRY LANE',409,615,'road',-90],['PAUL W. BRYANT DRIVE',490,687,'road',2],['PETER BRYCE CAMPUS',600,265,'park',0],['BLACK WARRIOR RIVER',211,117,'road',-28]];staticLabels.forEach(([s,x,y,c,a])=>$('#place-labels').append(svgEl('text',{x,y,'text-anchor':'middle',class:`map-label ${c}`,transform:`rotate(${a} ${x} ${y})`},s)));
- buses.forEach(b=>{const g=svgEl('g',{class:'bus-marker','data-bus':b.id,role:'button',tabindex:0,'aria-label':`Bus ${b.id}, ${b.route.name}`},`<title>Bus ${b.id} · ${b.route.name}</title><g class="bus-turn"><rect x="-8" y="-13" width="16" height="26" rx="4" fill="white" stroke="white" stroke-width="3"/><rect class="bus-body" x="-7" y="-12" width="14" height="24" rx="3" fill="${b.route.color}" stroke="#52604e" stroke-width=".7"/><path d="M-5-7H5V-3H-5Z" fill="#e8efed"/><path d="M-5 5H5M-5 8H5" stroke="#fff" stroke-opacity=".5" stroke-width="1"/><path d="M-8-6v5M8-6v5M-8 5v5M8 5v5" stroke="#353c31" stroke-width="1.8"/></g><g class="bus-id-label"><rect x="12" y="-21" width="43" height="16" rx="4" fill="#fff" stroke="#ddd" stroke-width=".5"/><text x="33.5" y="-10" text-anchor="middle" fill="#111" font-size="8" font-family="Arial" font-weight="600">BUS ${b.id}</text></g>`);g.addEventListener('click',()=>{if(didPan)return;state.tab='routes';state.route=b.route.id;state.mapFocusRouteId=b.route.id;renderPanel();toast(`Bus ${b.id} · ${b.route.name}`)});g.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();g.dispatchEvent(new Event('click'))}});$('#bus-markers').append(g)});
+/** Interactive POI marker anchored on the building footprint (`visual`), not the routing entrance. */
+function makePoiMarker(p){
+ const g=svgEl('g',{class:'poi-marker',transform:`translate(${p.visual.x},${p.visual.y})`,'data-poi':p.id,role:'button',tabindex:0,'aria-pressed':'false','aria-label':`${p.name}, ${p.category}. Show place details`},
+  `<title>${escapeHtml(p.name)}</title><circle class="poi-hit" r="20"/><circle class="poi-ring" r="10.5"/><circle class="poi-dot" r="6.5"/><circle class="poi-core" r="2.2"/><text class="poi-label" y="-13" text-anchor="middle">${escapeHtml(p.name)}</text>`);
+ g.addEventListener('click',()=>{if(!didPan)selectPoi(p)});
+ g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectPoi(p)}});
+ $('#poi-markers').append(g);
 }
-function drawFocus(){const active=effectiveMapFocus();
+function syncPoiMarkers(){$$('.poi-marker').forEach(g=>{const on=g.dataset.poi===state.selectedPoi?.id;g.classList.toggle('selected',on);g.setAttribute('aria-pressed',on)})}
+function makeMap(){const lines=$('#route-lines');routes.forEach(r=>{const d=pathD(r.points);lines.append(svgEl('path',{d,class:'route-underlay','data-under':r.id}),svgEl('path',{d,stroke:r.color,class:'route-path','data-line':r.id}));r.stops.forEach(s=>$('#stop-markers').append(svgEl('circle',{cx:s.x,cy:s.y,r:3,stroke:r.color,class:'stop-mark','data-stop-route':r.id}))) });
+ places.forEach(makePoiMarker);
+ buses.forEach(b=>{const g=svgEl('g',{class:'bus-marker','data-bus':b.id,role:'button',tabindex:0,'aria-label':`Bus ${b.id}, ${b.route.name}`},`<title>Bus ${b.id} · ${b.route.name}</title><g class="bus-turn"><rect x="-8" y="-13" width="16" height="26" rx="4" fill="white" stroke="white" stroke-width="3"/><rect class="bus-body" x="-7" y="-12" width="14" height="24" rx="3" fill="${b.route.color}" stroke="#52604e" stroke-width=".7"/><path d="M-5-7H5V-3H-5Z" fill="#e8efed"/><path d="M-5 5H5M-5 8H5" stroke="#fff" stroke-opacity=".5" stroke-width="1"/><path d="M-8-6v5M8-6v5M-8 5v5M8 5v5" stroke="#353c31" stroke-width="1.8"/></g><g class="bus-id-label"><rect x="12" y="-21" width="43" height="16" rx="4" fill="#fff" stroke="#ddd" stroke-width=".5"/><text x="33.5" y="-10" text-anchor="middle" fill="#111" font-size="8" font-family="Arial" font-weight="600">BUS ${b.id}</text></g>`);g.addEventListener('click',()=>{if(didPan)return;state.selectedPoi=null;state.tab='routes';state.route=b.route.id;state.mapFocusRouteId=b.route.id;renderPanel();toast(`Bus ${b.id} · ${b.route.name}`)});g.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();g.dispatchEvent(new Event('click'))}});$('#bus-markers').append(g)});
+}
+function drawFocus(){const active=effectiveMapFocus();syncPoiMarkers();
  $$('[data-line]').forEach(e=>{const on=!active||e.dataset.line===active;e.style.display=on?'':'none';e.classList.toggle('emphasis',!!active&&e.dataset.line===active);e.classList.remove('dimmed')});
  $$('[data-under]').forEach(e=>{e.style.display=!active||e.dataset.under===active?'':'none';e.style.opacity=1});
  $$('[data-stop-route]').forEach(e=>{const on=!active||e.dataset.stopRoute===active;e.style.display=on?'':'none';e.style.opacity=.8;e.setAttribute('r',active&&e.dataset.stopRoute===active?3.5:2.3)});
@@ -146,10 +213,12 @@ function zoom(f){state.followMap=false;const w=Math.max(190,Math.min(1500,view.w
 map.addEventListener('pointerdown',e=>{if(e.button!==0)return;pan={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y};didPan=false});
 map.addEventListener('pointermove',e=>{if(!pan)return;const dx=e.clientX-pan.x,dy=e.clientY-pan.y;if(Math.abs(dx)+Math.abs(dy)>5){if(!didPan)map.setPointerCapture(e.pointerId);didPan=true;state.followMap=false;map.classList.add('dragging');const r=map.getBoundingClientRect();view.x=pan.vx-dx*view.w/r.width;view.y=pan.vy-dy*view.h/r.height;setView()}});
 function stopPan(){pan=null;map.classList.remove('dragging');setTimeout(()=>didPan=false,0)}map.addEventListener('pointerup',stopPan);map.addEventListener('pointercancel',stopPan);map.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY>0?1.08:.92)},{passive:false});
+map.addEventListener('click',e=>{if(didPan||!state.selectedPoi||e.target.closest('.poi-marker,.bus-marker'))return;dismissPoi()});
 $('#zoom-in').addEventListener('click',()=>zoom(.8));$('#zoom-out').addEventListener('click',()=>zoom(1.25));$('#recenter').addEventListener('click',()=>{if(state.trip){state.followMap=true;updateTraveler();toast('Following your trip');}else state.tab==='routes'&&state.route?centerRoute(state.route):centerOnPlaces();});
 function pauseUI(){$('#pause').innerHTML=icon(state.paused?'play':'pause');$('#pause').setAttribute('aria-label',state.paused?'Resume simulation':'Pause simulation')}
-$('#pause').addEventListener('click',()=>{state.paused=!state.paused;pauseUI();toast(state.paused?'Simulation paused':'Simulation resumed')});$('#speed').addEventListener('click',()=>{const speeds=[1,2,3];state.speed=speeds[(speeds.indexOf(state.speed)+1)%speeds.length];$('#speed').textContent=state.speed+'×';toast(`Simulation speed: ${state.speed}×`)});$('#reset').addEventListener('click',()=>{state.sim=0;state.trip=null;state.selected=null;state.route=null;state.mapFocusRouteId=null;state.phase=null;state.tab='ride';state.paused=false;state.speed=3;$('#speed').textContent='3×';pauseUI();planCache=null;renderPanel();resetMap();toast('Presentation reset')});$('#brand').addEventListener('click',()=>{resetDestination();state.origin=places[0];renderPanel()});$$('[data-tab]').forEach(b=>b.addEventListener('click',()=>{state.tab=b.dataset.tab;if(state.tab!=='routes')state.route=null;renderPanel();panel.scrollTop=0;if(state.tab==='routes')resetMap()}));
+$('#pause').addEventListener('click',()=>{state.paused=!state.paused;pauseUI();toast(state.paused?'Simulation paused':'Simulation resumed')});$('#speed').addEventListener('click',()=>{const speeds=[1,2,3];state.speed=speeds[(speeds.indexOf(state.speed)+1)%speeds.length];$('#speed').textContent=state.speed+'×';toast(`Simulation speed: ${state.speed}×`)});$('#reset').addEventListener('click',()=>{state.selectedPoi=null;state.sim=0;state.trip=null;state.selected=null;state.route=null;state.mapFocusRouteId=null;state.phase=null;state.tab='ride';state.paused=false;state.speed=3;$('#speed').textContent='3×';pauseUI();planCache=null;renderPanel();resetMap();toast('Presentation reset')});$('#brand').addEventListener('click',()=>{resetDestination();state.origin=places[0];renderPanel()});$$('[data-tab]').forEach(b=>b.addEventListener('click',()=>{state.selectedPoi=null;state.tab=b.dataset.tab;if(state.tab!=='routes')state.route=null;renderPanel();panel.scrollTop=0;if(state.tab==='routes')resetMap()}));
 let priorFocus;function openAbout(){priorFocus=document.activeElement;$('#about').classList.remove('hidden');$('#close-about').focus()}function closeAbout(){$('#about').classList.add('hidden');priorFocus?.focus()}$('#about-button').addEventListener('click',openAbout);$('#close-about').addEventListener('click',closeAbout);$('#start-demo').addEventListener('click',closeAbout);$('#about').addEventListener('click',e=>{if(e.target===$('#about'))closeAbout()});document.addEventListener('keydown',e=>{if(!$('#about').classList.contains('hidden')){if(e.key==='Escape')closeAbout();if(e.key==='Tab'){const items=$('#about').querySelectorAll('button,a[href]'),first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&state.selectedPoi&&$('#about').classList.contains('hidden')&&!document.querySelector('.welcome-overlay'))dismissPoi(true)});
 document.addEventListener('click',e=>{if(!e.target.closest('.location-box,.suggestions')){const box=$('#suggestions');box?.classList.add('hidden');if(state.editing){const field=$(`#${state.editing}-input`);if(field)field.value=state[state.editing]?.name||'';state.editing=null;const follow=$('#follow');if(follow)follow.disabled=false}}});
 function frame(now){if(lastFrame!==null&&!state.paused)state.sim+=Math.min((now-lastFrame)/1000,.1)*state.speed;lastFrame=now;for(const b of buses){const p=busPosition(b),e=$(`[data-bus="${b.id}"]`);e.setAttribute('transform',`translate(${p.x},${p.y})`);e.querySelector('.bus-turn').setAttribute('transform',`rotate(${p.angle}) scale(.57)`)}updateTraveler();if(now-lastRefresh>1000){lastRefresh=now;if(state.trip){updateTracking();checkTripAlerts();}else if(state.destination&&state.tab==='ride'&&!state.editing){state.results=plans();const options=$('#options');if(options){options.innerHTML=state.results.map((p,i)=>optionContent(p,i)).join('');options.querySelectorAll('[data-option]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.option;if(state.selected===id&&state.mapFocusRouteId===id){state.mapFocusRouteId=null;drawFocus();return;}state.selected=id;state.mapFocusRouteId=id;renderPanel()}));const p=state.results.find(p=>p.route.id===state.selected);if(p&&$('#breakdown'))$('#breakdown').innerHTML=breakdown(p)}}}requestAnimationFrame(frame)}
 
@@ -175,4 +244,4 @@ function checkTripAlerts(){const t=state.trip;if(!t)return;state.alerts??=new Se
 }
 hydrateIcons();makeMap();renderPanel();pauseUI();resetMap();requestAnimationFrame(frame);new ResizeObserver(()=>{if(!pan)state.destination?centerOnPlaces():resetMap()}).observe($('.map-area'));
 // Expose immutable summaries for lightweight, local presentation QA.
-window.campusDemo={get summary(){return{time:state.sim,paused:state.paused,phase:tripPhase(),routes:routes.length,buses:buses.length,destination:state.destination?.name||null,mapFocusRouteId:effectiveMapFocus()}},get plans(){return plans().map(p=>({route:p.route.name,walk:p.walkIn,pickup:p.pickup,dropoff:p.dropoff,total:p.total,bus:p.bus.id}))},get mapVisibility(){const vis=e=>e.style.display!=='none';return{lines:$$('[data-line]').filter(vis).map(e=>e.dataset.line),unders:$$('[data-under]').filter(vis).map(e=>e.dataset.under),buses:$$('[data-bus]').filter(vis).map(e=>e.dataset.bus),stops:$$('[data-stop-route]').filter(vis).length}}};
+window.campusDemo={get summary(){return{time:state.sim,paused:state.paused,phase:tripPhase(),routes:routes.length,buses:buses.length,destination:state.destination?.name||null,origin:state.origin.name,selectedPoi:state.selectedPoi?.id||null,mapFocusRouteId:effectiveMapFocus()}},get pois(){return places.map(p=>({id:p.id,name:p.name,visual:{x:p.visual.x,y:p.visual.y},entrance:{x:p.x,y:p.y},check:!!p.visual.check}))},get plans(){return plans().map(p=>({route:p.route.name,walk:p.walkIn,pickup:p.pickup,dropoff:p.dropoff,total:p.total,bus:p.bus.id}))},get mapVisibility(){const vis=e=>e.style.display!=='none';return{lines:$$('[data-line]').filter(vis).map(e=>e.dataset.line),unders:$$('[data-under]').filter(vis).map(e=>e.dataset.under),buses:$$('[data-bus]').filter(vis).map(e=>e.dataset.bus),stops:$$('[data-stop-route]').filter(vis).length}}};
