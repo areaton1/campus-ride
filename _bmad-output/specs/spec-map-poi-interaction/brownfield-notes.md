@@ -1,35 +1,48 @@
-# Brownfield notes — Feature 2 POI (verified on main @ 96dedfe)
+# Brownfield notes — Feature 2 POI
 
-## Current behavior (verified)
+Baseline: main @ 96dedfe. Branch: `feature/map-poi-interaction`. Planning commit: `b99bdce`.
 
-- `places[]` in `dist/app.js`: 14 campus destinations with `id`, `name`, `category`, `type`, `aliases`.
-- Coords synced from `CampusNetwork.entrances` in `dist/network.js` (all 14 have entrances + pedestrian spurs).
-- Map labels in `makeMap()`: 12 clickable `map-place` groups (text only). **Missing map labels:** `serc`, `lakeside`.
-- Label click today: immediately sets `state.destination`, clears trip/selection, switches to Ride tab — **no preview card**.
-- Search / popular list / saved places already set destination via `data-place` or `choosePlace`.
-- Pan/zoom: pointer pan + `didPan` gate; wheel + zoom buttons; mobile hides `.zoom-group`.
-- Feature 1: `mapFocusRouteId` + `effectiveMapFocus()`; trip-lock notice AD-ISO-5.
+## Current behavior (verified pre-Feature-2)
 
-## Likely touch points (implementation later)
+- `places[]`: 14 destinations; `x,y` overwritten from `CampusNetwork.entrances`.
+- `makeMap()`: 12 clickable `map-place` texts + 7 decorative `staticLabels`; missing map labels for `serc`, `lakeside`.
+- Label click sets `destination` immediately (no card).
+- Feature 1: `mapFocusRouteId` + `effectiveMapFocus()`; AD-ISO-5.
+- Basemap: `campus-map.svg` via `<image href>` in `index.html`.
+
+## Embedded SVG label study (2026-11-18; strip applied on this branch)
+
+| Finding | Evidence |
+|---------|----------|
+| No `<text>` in SVG | Labels are path-outlined glyphs |
+| `buildings` isolated | 320 `#dfe2dc` fills + 320 outlines; matrix transforms per footprint |
+| `building numbers` isolated | 195 paths; **0** shared `d` with `buildings` or `road names` |
+| Strip test (in-memory) | Removing `building numbers` leaves `#dfe2dc` count = 320; road names / streets / water / railroad strings intact |
+| `road names` separate | 148 paths — keep for navigation |
+| `Bryce` | 2 fill paths — inset lettering, not footprints |
+| Auto-centroid from raw `d` | Unreliable without applying transforms → manual visual placement |
+
+**Recommendation:** Safe to remove `building numbers` from `dist/campus-map.svg` without damaging geography. Keep `road names`. Not an OSM migration.
+
+## Target behavior (post-review)
+
+- JS permanent name labels → interactive markers for all 14.
+- `visual:{x,y}` SVG-footprint-aligned; entrance `x,y` for routing only.
+- `state.selectedPoi` + sidebar/sheet card; trip = inspect-only.
+- SVG: strip `building numbers`; keep road names; honest “not fully label-free” stance.
+
+## Touch points
 
 | File | Role |
 |------|------|
-| `dist/app.js` | `makeMap` markers/hit targets; `state.selectedPoi`; card render + Get Directions / Set Starting Point; wire to `choosePlace` / origin assignment |
-| `dist/index.html` | Card CSS; optional marker styles |
-| `dist/mobile.js` | Sheet height when card opens (if needed) |
-| `tests/routing.cjs` | Unchanged unless entrances change |
+| `dist/campus-map.svg` | Remove `building numbers` layer only |
+| `dist/app.js` | `visual`, markers, card, actions, remove JS labels |
+| `dist/index.html` | Marker/card CSS |
+| `dist/mobile.js` | Sheet polish if needed |
+| `dist/network.js` | **No change** |
+| Specs + decision-log | AD-POI-1…6 |
 
-## Integration rules
+## Commit hygiene
 
-- Get Directions ≈ set destination then existing `resultsContent` / `plans()`.
-- Set as Starting Point ≈ `state.origin = place` (mirror `#use-location` / `choosePlace` with `editing='origin'`).
-- Do not put Crimson Ride stop nodes into `places[]` as destinations in this feature.
-- Keep isolation presentation-only.
-
-## Suggested implementation sequence (after approval)
-
-1. `state.selectedPoi` + card UI shell (dismiss only).
-2. Replace immediate destination assignment on `map-place` with card open; add hit circles for all entranced places (incl. SERC/Lakeside).
-3. Wire Get Directions / Set as Starting Point.
-4. Mobile sheet / trip-active policy (per open questions).
-5. Manual + `routing.cjs` regression; preserve Feature 1 checks.
+- Do **not** stage: `map-src/`, `docs/week 11_ assignment_ 430 Elicitation Report.pdf`
+- Do **not** merge `research/offline-campus-map` into this branch
