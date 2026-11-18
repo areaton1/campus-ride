@@ -8,6 +8,7 @@ Project decisions that keep implementation consistent. Course documents under `d
 | AD-ISO-2 | 2026-11-18 | Adopted | Non-focused route paths, underlays, stop marks, and bus markers use full hide (`display: none`), not opacity dimming. Simulation `requestAnimationFrame` loop still updates every bus. | SVG overlay presentation | Underlays remaining visible when “isolated”; buses freezing when hidden |
 | AD-ISO-3 | 2026-11-18 | Adopted | Isolation never filters `computePlans` / `plans()` / walking / ETA math. | Routing engine boundary | Presentation bugs changing recommendations |
 | AD-ISO-4 | 2026-11-18 | Adopted | Feature 1 ships on `feature/route-isolation` only; no POI, pinch-zoom, or place expansion in this branch. | Branch scope | Scope creep into later map-phase features |
+| AD-ISO-5 | 2026-11-18 | Adopted | While `state.trip` is set, Routes hides Show All Routes and shows: “Trip in progress — your selected route remains highlighted.” List focus uses `effectiveMapFocus()` (trip route). Normal Show All / toggle resumes when the trip ends. | Routes panel during tracking | Misleading Show All that clears manual focus but leaves trip isolation |
 
 ## Proposed course-doc updates (not applied)
 

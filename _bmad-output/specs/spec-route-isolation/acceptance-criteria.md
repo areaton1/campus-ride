@@ -11,7 +11,8 @@
 | AC-5 | Focused route’s stop marks remain, including nodes shared with other patterns. | e.g. Bidgood / Capstone corridor stop on focused route still shown. |
 | AC-6 | Selecting a different route switches focus immediately. | Click East after Campus Loop. |
 | AC-7 | Selecting the active Routes item again restores full overview. | Toggle same route twice. |
-| AC-8 | Show All Routes restores full overview. | Enter route detail → Show All Routes. |
+| AC-8 | Show All Routes restores full overview when no trip is active. | Enter route detail → Show All Routes. |
+| AC-8b | During an active trip, Routes does not offer Show All; shows trip-lock notice; list marks the effective (trip) route. | Follow This Bus → Routes tab; confirm notice + focused Active trip row; no `#all-routes`. |
 | AC-9 | Choosing a Ride itinerary option focuses that route; `plans()` counts unchanged. | PV → Student Center; pick option; map isolates; `node tests/routing.cjs` still passes. |
 | AC-10 | Follow This Bus, walk paths, ETAs, trip phases, mobile sheet unchanged. | Full smoke trip + narrow viewport Routes selection. |
 
