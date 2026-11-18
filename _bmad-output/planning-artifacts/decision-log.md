@@ -9,6 +9,8 @@ Project decisions that keep implementation consistent. Course documents under `d
 | AD-ISO-3 | 2026-11-18 | Adopted | Isolation never filters `computePlans` / `plans()` / walking / ETA math. | Routing engine boundary | Presentation bugs changing recommendations |
 | AD-ISO-4 | 2026-11-18 | Adopted | Feature 1 ships on `feature/route-isolation` only; no POI, pinch-zoom, or place expansion in this branch. | Branch scope | Scope creep into later map-phase features |
 | AD-ISO-5 | 2026-11-18 | Adopted | While `state.trip` is set, Routes hides Show All Routes and shows: “Trip in progress — your selected route remains highlighted.” List focus uses `effectiveMapFocus()` (trip route). Normal Show All / toggle resumes when the trip ends. | Routes panel during tracking | Misleading Show All that clears manual focus but leaves trip isolation |
+| AD-POI-1 | 2026-11-18 | Proposed | Feature 2 uses `state.selectedPoi` for map preview cards; origin/destination change only via explicit card actions (Get Directions / Set as Starting Point). | POI interaction model | Accidental destination changes from exploratory map taps |
+| AD-POI-2 | 2026-11-18 | Proposed | Render selectable markers for every entranced place (including SERC/Lakeside); keep bus stops out of destination POIs until a separate Feature 3 stops dataset. | Map POI coverage vs stop confusion | Mixing boarding stops into place search destinations |
 
 ## Proposed course-doc updates (not applied)
 
