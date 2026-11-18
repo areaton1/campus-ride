@@ -1,7 +1,9 @@
 'use strict';
 const sheet=document.querySelector('.sidebar'),grip=document.querySelector('#sheet-handle');
 let sheetLevel=1,sheetDrag=null;
-function setSheet(level){sheetLevel=Math.max(0,Math.min(2,level));const values=[19,52,88];sheet.style.setProperty('--sheet-height',values[sheetLevel]+'%');sheet.dataset.sheet=['collapsed','half','expanded'][sheetLevel];grip.setAttribute('aria-expanded',sheetLevel>0);if(innerWidth<=680)centerOnPlaces()}
+function setSheet(level,keepView){sheetLevel=Math.max(0,Math.min(2,level));const values=[19,52,88];sheet.style.setProperty('--sheet-height',values[sheetLevel]+'%');sheet.dataset.sheet=['collapsed','half','expanded'][sheetLevel];grip.setAttribute('aria-expanded',sheetLevel>0);if(innerWidth<=680&&!keepView)centerOnPlaces()}
+/** Open a collapsed sheet for POI cards without re-fitting the map. */
+function revealSheet(){if(innerWidth<=680&&sheetLevel===0)setSheet(1,true)}
 grip.addEventListener('click',()=>{if(!sheetDrag)setSheet((sheetLevel+1)%3)});
 grip.addEventListener('pointerdown',e=>{sheetDrag={y:e.clientY,h:sheet.getBoundingClientRect().height,moved:false};grip.setPointerCapture(e.pointerId);sheet.classList.add('dragging-sheet')});
 grip.addEventListener('pointermove',e=>{if(!sheetDrag)return;const dy=sheetDrag.y-e.clientY;if(Math.abs(dy)>6)sheetDrag.moved=true;const total=document.querySelector('.workspace').clientHeight;sheet.style.setProperty('--sheet-height',Math.max(19,Math.min(88,(sheetDrag.h+dy)/total*100))+'%')});
