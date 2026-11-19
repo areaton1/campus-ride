@@ -15,7 +15,7 @@ Buildless HTML, CSS, JavaScript, and SVG prototype of an Uber-inspired Universit
 | Path | Purpose |
 |------|---------|
 | `dist/` | Working prototype (run this) |
-| `tests/` | Routing validation (`routing.cjs`) |
+| `tests/` | Routing / POI / AI assistant validation (`routing.cjs`, `poi.cjs`, `ai-assistant.cjs`) |
 | `docs/` | MIS 430 course / project documents |
 | `_bmad/` | BMAD v6.12.4 configuration (already installed) |
 | `.agents/skills/` | Cursor-compatible BMAD skills |
@@ -27,7 +27,8 @@ Course documents live in `docs/`. Keep personal interview notes and sensitive ac
 ### Prototype files
 
 - `dist/index.html` — interface and styles
-- `dist/app.js` — places, search, trip planner, bus simulation, browser-local favorites
+- `dist/app.js` — places, search, trip planner, bus simulation, POI card wiring, assistant UI, browser-local favorites
+- `dist/ai-assistant.js` — deterministic local trip-request interpreter (US-17; no external AI)
 - `dist/network.js` — street traces, route patterns, pedestrian graph, entrances
 - `dist/mobile.js` — mobile welcome overlay and draggable three-position bottom sheet
 - `dist/campus-map.svg` — simplified vector geography from UA’s 2014 campus reference map
@@ -130,8 +131,9 @@ Then open http://localhost:8000. Do not change `package.json` for this; use the 
 3. Trip advances through walking / waiting / riding / final walk / arrival.
 4. **Next demo stage** jumps ahead; speed controls change 1× / 2× / 3×.
 5. Narrow the window to phone width: sliding welcome pane appears, and the bottom sheet snaps to three heights.
+6. **Ask Trip Assistant** (Ride tab): open the simulated assistant, try an example chip (e.g. Presidential → Bidgood), confirm places, and land in the same route planner. Live-bus / off-topic / Publix examples should refuse or clarify without inventing places.
 
-All routes, stops, vehicles, and ETAs are **illustrative demo data**, not verified live Crimson Ride. Location is simulated; no GPS / location permission is requested. The map is based on a historic UA reference and is not for real navigation.
+All routes, stops, vehicles, ETAs, and assistant replies are **illustrative / simulated demo data**, not verified live Crimson Ride or a real AI backend. Location is a demo starting point; no GPS / location permission is requested. The map is based on a historic UA reference and is not for real navigation.
 
 ### Port 8000 already in use
 
@@ -142,21 +144,25 @@ That usually means another process (often a leftover Campus Ride server) is boun
 
 ---
 
-## Run routing validation
+## Run validation tests
 
-After changes to places, routes, or network geometry — and once after a fresh clone to confirm your environment:
+After changes to places, routes, network geometry, POIs, or the trip assistant — and once after a fresh clone:
 
 ```bash
 node tests/routing.cjs
+node tests/poi.cjs
+node tests/ai-assistant.cjs
 ```
 
-Recent successful snapshot (observed counts, **not** a fixed acceptance contract; approved routing changes may change them):
+Recent successful routing snapshot (observed counts, **not** a fixed acceptance contract; approved routing changes may change them):
 
 ```json
 {"walkingPairs":182,"itineraries":1904,"noUsefulBusCases":64,"routes":6}
 ```
 
-If the command throws an assertion error, something in the routing model broke. If it prints JSON and exits 0, validation passed for this run.
+`poi.cjs` checks 14 searchable places, visual-vs-entrance separation, and trip-lock on POI actions. `ai-assistant.cjs` checks scripted interpret/guardrail behavior (confirm-before-apply, ambiguity, unsupported places, live/off-topic refusal, no invented place IDs). If a command throws, something in that contract broke. JSON + exit 0 means that suite passed for this run.
+
+**US-17 note:** The assistant is a deterministic local script for the class prototype. It does not call external AI services. Actual model accuracy and live-data reliability cannot be validated through this simulation.
 
 ---
 
