@@ -45,7 +45,7 @@ places.forEach(p=>{const e=CampusNetwork.entrances[p.id];if(e){p.x=e.point[0];p.
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),mod=(a,b)=>((a%b)+b)%b;
 routes.forEach(r=>{let t=0;r.timeline=[];r.nodeTimes=[];r.points.forEach((p,i)=>{if(i===r.points.length-1)return;r.nodeTimes[i]=t;const next=r.points[i+1];if(r.stops.some(s=>s.i===i)){r.timeline.push({from:t,to:t+30,a:p,b:p,dwell:true,next});t+=30}const dt=Math.hypot(next[0]-p[0],next[1]-p[1])/1.3;r.timeline.push({from:t,to:t+dt,a:p,b:next,dwell:false});t+=dt});r.duration=t;r.stops.forEach(s=>{s.x=r.points[s.i][0];s.y=r.points[s.i][1];s.at=r.nodeTimes[s.i]})});
 const buses=routes.flatMap((r,ri)=>[0,1].map((v)=>({id:`${ri+1}0${v+1}`,route:r,offset:v*r.duration/2+(ri===1?58:ri*41)})));
-let state={tab:'ride',origin:places[0],destination:null,selected:null,trip:null,route:null,mapFocusRouteId:null,selectedPoi:null,sim:0,speed:3,paused:matchMedia('(prefers-reduced-motion: reduce)').matches,editing:null,results:[],phase:null,followMap:false,walkPreview:false};
+let state={tab:'ride',origin:places[0],destination:null,selected:null,trip:null,route:null,mapFocusRouteId:null,selectedPoi:null,assistantOpen:false,assistant:{log:[],draftOrigin:null,draftDestination:null,pending:null},sim:0,speed:3,paused:matchMedia('(prefers-reduced-motion: reduce)').matches,editing:null,results:[],phase:null,followMap:false,walkPreview:false};
 /** Presentation-only map focus. Trip route always wins while a trip is active. */
 function effectiveMapFocus(){return state.trip?state.trip.route.id:state.mapFocusRouteId}
 let saved=[];try{saved=JSON.parse(localStorage.getItem('campus-saved')||'["student-center","bidgood"]');if(!Array.isArray(saved))saved=[];saved=saved.filter(id=>places.some(p=>p.id===id))}catch{saved=['student-center','bidgood']}
@@ -74,12 +74,13 @@ function directWalk(){return state.destination&&state.destination!==state.origin
 function walkComparison(){const w=directWalk();if(!w)return '';const quickest=state.results[0],diff=quickest?Math.round((quickest.total-w.seconds)/60):null;return `<div class="walk-comparison"><span class="place-icon">${icon('walk')}</span><div><strong>Walk the whole way · ${mins(w.seconds)} min</strong><small>${Math.round(w.meters)} m along campus paths${diff>0?' · About '+diff+' min faster than the bus':''}</small></div><button class="text-button" id="preview-walk">${state.walkPreview?'Show bus':'View path'}</button></div>`;}
 function fields(){return `<div class="location-box"><label class="field"><span class="location-dot"></span><span class="screen-reader">Starting location</span><input id="origin-input" autocomplete="off" spellcheck="false" value="${escapeHtml(state.origin.name)}" aria-label="Starting location" aria-controls="suggestions"><button class="field-button" id="use-location" type="button" aria-label="Use demo current location">${icon('locate')}</button></label><label class="field"><span class="location-square"></span><span class="screen-reader">Destination</span><input id="destination-input" autocomplete="off" spellcheck="false" value="${escapeHtml(state.destination?.name||'')}" placeholder="Where to?" aria-label="Destination" aria-controls="suggestions">${state.destination?`<button type="button" id="clear-destination" class="field-button" aria-label="Clear destination">${icon('close')}</button>`:''}</label></div><div id="suggestions" class="suggestions hidden" aria-label="Matching campus locations"></div>`}
 function placeRow(p,attr='data-place'){return `<button class="place-row" ${attr}="${p.id}"><span class="place-icon">${icon(p.type)}</span><span class="place-copy"><strong>${p.name}</strong><small>${p.category}</small></span>${icon('chevron')}</button>`}
-function homeContent(){return `<p class="eyebrow">University of Alabama</p><h1>Your campus.<br>Your next stop.</h1>${fields()}<div class="demo-hint"><span class="mini-user"></span>Starting at ${state.origin.name} · demo location</div>${saved.length?`<div class="section-label">Your saved places</div><div class="saved-shortcuts">${saved.slice(0,4).map(id=>{const p=places.find(p=>p.id===id);return `<button data-place="${id}" class="saved-shortcut">${icon(p.type)}<strong>${escapeHtml(savedLabel(p))}</strong><small>${escapeHtml(p.name)}</small></button>`}).join('')}</div>`:''}<div class="section-label">Popular on campus</div><div class="places-list">${['student-center','bidgood','gorgas'].map(id=>placeRow(places.find(p=>p.id===id))).join('')}</div><div class="tip">${icon('bus')}<span>Your next ride is already on its way.<br>Choose a destination to find your bus.</span></div>`}
-function resultsContent(){state.results=plans();if(!state.results.length)return `<h1>Plan your ride</h1>${fields()}<div class="notice">${state.destination===state.origin?'You’re already at your destination. Choose another campus location.':'Walking is the better fit for this trip. No useful direct bus option connects these locations in this demo.'}</div>${walkComparison()}<button class="text-button" id="home-again">Choose another destination</button>`;if(!state.selected||!state.results.some(p=>p.route.id===state.selected)){state.selected=state.results[0].route.id;state.mapFocusRouteId=state.selected;}else if(state.mapFocusRouteId&&!state.results.some(p=>p.route.id===state.mapFocusRouteId)&&state.mapFocusRouteId!==state.selected){state.mapFocusRouteId=state.selected;}const selected=state.results.find(p=>p.route.id===state.selected);return `<p class="eyebrow">Let's get you there</p><h1>Choose your ride.</h1>${fields()}${walkComparison()}<div class="ride-heading"><h2>Available routes</h2><small>Simulated estimates</small></div><div id="options">${state.results.map((p,i)=>optionContent(p,i)).join('')}</div><div class="trip-breakdown" id="breakdown">${breakdown(selected)}</div><button class="primary" id="follow">Follow this bus ${icon('arrow')}</button><div class="selection-note">You’ll walk to a bus stop. No booking needed.</div><button class="text-button" id="save-destination">${saved.includes(state.destination.id)?'✓ Saved destination':'+ Save this destination'}</button>`}
+function assistantEntry(){return `<button type="button" class="secondary assistant-entry" id="open-assistant">Ask Trip Assistant</button>`}
+function homeContent(){return `<p class="eyebrow">University of Alabama</p><h1>Your campus.<br>Your next stop.</h1>${fields()}<div class="demo-hint"><span class="mini-user"></span>Starting at ${state.origin.name} · demo location</div>${assistantEntry()}${saved.length?`<div class="section-label">Your saved places</div><div class="saved-shortcuts">${saved.slice(0,4).map(id=>{const p=places.find(p=>p.id===id);return `<button data-place="${id}" class="saved-shortcut">${icon(p.type)}<strong>${escapeHtml(savedLabel(p))}</strong><small>${escapeHtml(p.name)}</small></button>`}).join('')}</div>`:''}<div class="section-label">Popular on campus</div><div class="places-list">${['student-center','bidgood','gorgas'].map(id=>placeRow(places.find(p=>p.id===id))).join('')}</div><div class="tip">${icon('bus')}<span>Your next ride is already on its way.<br>Choose a destination to find your bus.</span></div>`}
+function resultsContent(){state.results=plans();if(!state.results.length)return `<h1>Plan your ride</h1>${fields()}${assistantEntry()}<div class="notice">${state.destination===state.origin?'You’re already at your destination. Choose another campus location.':'Walking is the better fit for this trip. No useful direct bus option connects these locations in this demo.'}</div>${walkComparison()}<button class="text-button" id="home-again">Choose another destination</button>`;if(!state.selected||!state.results.some(p=>p.route.id===state.selected)){state.selected=state.results[0].route.id;state.mapFocusRouteId=state.selected;}else if(state.mapFocusRouteId&&!state.results.some(p=>p.route.id===state.mapFocusRouteId)&&state.mapFocusRouteId!==state.selected){state.mapFocusRouteId=state.selected;}const selected=state.results.find(p=>p.route.id===state.selected);return `<p class="eyebrow">Let's get you there</p><h1>Choose your ride.</h1>${fields()}${assistantEntry()}${walkComparison()}<div class="ride-heading"><h2>Available routes</h2><small>Simulated estimates</small></div><div id="options">${state.results.map((p,i)=>optionContent(p,i)).join('')}</div><div class="trip-breakdown" id="breakdown">${breakdown(selected)}</div><button class="primary" id="follow">Follow this bus ${icon('arrow')}</button><div class="selection-note">You’ll walk to a bus stop. No booking needed.</div><button class="text-button" id="save-destination">${saved.includes(state.destination.id)?'✓ Saved destination':'+ Save this destination'}</button>`}
 
 function breakdown(p){return `${icon('walk')} ${mins(p.walkIn)} min <span>·</span> ${icon('clock')} ${mins(Math.max(0,p.pickup-state.sim-p.walkIn))} min <span>·</span> ${icon('bus')} ${mins(p.dropoff-p.pickup)} min <span>·</span> ${icon('walk')} ${mins(p.walkOut)} min`}
 function tripPhase(){const t=state.trip;if(!t)return null;if(state.sim<t.started+t.walkIn)return'walk';if(state.sim<t.pickup)return'wait';if(state.sim<t.dropoff)return'ride';if(state.sim<t.dropoff+t.walkOut)return'finish';return'arrived'}
-function trackingContent(){const t=state.trip,phase=tripPhase();state.phase=phase;if(phase==='arrived')return `<div class="arrival-content"><div class="arrival-icon">${icon('check')}</div><p class="eyebrow">Trip complete</p><h1>You’ve arrived.</h1><p>Welcome to <strong>${state.destination.name}</strong>.</p><div class="notice">${t.route.name} · Bus ${t.bus.id}<br>Your simulated campus trip is complete.</div><button class="primary" id="new-trip">Plan another trip ${icon('arrow')}</button><button class="text-button" id="save-destination">${saved.includes(state.destination.id)?'✓ Saved destination':'+ Save this destination'}</button></div>`;const phaseIdx={walk:0,wait:1,ride:1,finish:2}[phase];const headline=phase==='walk'?'Head to your stop.':phase==='wait'?'Your bus is on its way.':phase==='ride'?'You’re on your way.':'Just a short walk.';const remaining=phase==='walk'||phase==='wait'?t.pickup-state.sim:t.dropoff+t.walkOut-state.sim;return `<div class="back-row"><button class="back-button" id="back-to-routes">${icon('back')}Route options</button><button class="icon-button" id="save-destination" aria-label="Save destination">${icon(saved.includes(state.destination.id)?'check':'bookmark')}</button></div><div class="tracking-top"><h1>${headline}</h1><div class="eta-tile"><strong id="track-eta">${mins(remaining)}</strong><span>${phase==='walk'||phase==='wait'?'min to bus':'min left'}</span></div></div><div class="track-bus"><div class="bus-picture">${busArtwork(t.route.color)}</div><div><h3>${t.route.name}</h3><p>${t.route.direction}</p><span class="bus-id">BUS ${t.bus.id}</span></div></div><div class="timeline"><div class="step ${phaseIdx===0?'active':'done'}"><span class="step-icon">${icon(phaseIdx>0?'check':'walk')}</span><div><strong>Walk to ${t.board.name}</strong><small>${mins(t.walkIn)} min walk · ${t.board.street}</small></div></div><div class="step ${phaseIdx===1?'active':phaseIdx>1?'done':''}"><span class="step-icon">${icon(phaseIdx>1?'check':'bus')}</span><div><strong>Take ${t.route.name}</strong><small>Look for Bus ${t.bus.id} · ${mins(t.dropoff-t.pickup)} min ride<br>Get off at ${t.exit.name}<br>${boardingDirection(t)}</small></div></div><div class="step ${phaseIdx===2?'active':''}"><span class="step-icon">${icon('pin')}</span><div><strong>${state.destination.name}</strong><small>${mins(t.walkOut)} min walk from the exit stop</small></div></div></div><div class="notice">${phase==='walk'?`Follow the dotted path to ${t.board.name} on ${t.board.street}. ${boardingDirection(t)}`:phase==='wait'?`Look for the ${t.route.name} route sign. Your bus is highlighted on the map.`:phase==='ride'?`Get off at ${t.exit.name}. We’ll alert you before your stop.`:'Follow the dotted path to your destination.'}</div><div class="progress-bar"><div id="trip-progress" class="progress-fill"></div></div><div class="selection-note">Departs ${clockTime(t.pickup)} · Arrive ${clockTime(t.dropoff+t.walkOut)}</div><button class="secondary" id="next-stage" style="width:100%;margin-top:12px">Next demo stage →</button><button class="text-button" id="cancel-trip">End trip</button>`}
+function trackingContent(){const t=state.trip,phase=tripPhase();state.phase=phase;if(phase==='arrived')return `<div class="arrival-content"><div class="arrival-icon">${icon('check')}</div><p class="eyebrow">Trip complete</p><h1>You’ve arrived.</h1><p>Welcome to <strong>${state.destination.name}</strong>.</p><div class="notice">${t.route.name} · Bus ${t.bus.id}<br>Your simulated campus trip is complete.</div><button class="primary" id="new-trip">Plan another trip ${icon('arrow')}</button><button class="text-button" id="save-destination">${saved.includes(state.destination.id)?'✓ Saved destination':'+ Save this destination'}</button></div>`;const phaseIdx={walk:0,wait:1,ride:1,finish:2}[phase];const headline=phase==='walk'?'Head to your stop.':phase==='wait'?'Your bus is on its way.':phase==='ride'?'You’re on your way.':'Just a short walk.';const remaining=phase==='walk'||phase==='wait'?t.pickup-state.sim:t.dropoff+t.walkOut-state.sim;return `<div class="back-row"><button class="back-button" id="back-to-routes">${icon('back')}Route options</button><button class="icon-button" id="save-destination" aria-label="Save destination">${icon(saved.includes(state.destination.id)?'check':'bookmark')}</button></div><div class="tracking-top"><h1>${headline}</h1><div class="eta-tile"><strong id="track-eta">${mins(remaining)}</strong><span>${phase==='walk'||phase==='wait'?'min to bus':'min left'}</span></div></div><div class="track-bus"><div class="bus-picture">${busArtwork(t.route.color)}</div><div><h3>${t.route.name}</h3><p>${t.route.direction}</p><span class="bus-id">BUS ${t.bus.id}</span></div></div><div class="timeline"><div class="step ${phaseIdx===0?'active':'done'}"><span class="step-icon">${icon(phaseIdx>0?'check':'walk')}</span><div><strong>Walk to ${t.board.name}</strong><small>${mins(t.walkIn)} min walk · ${t.board.street}</small></div></div><div class="step ${phaseIdx===1?'active':phaseIdx>1?'done':''}"><span class="step-icon">${icon(phaseIdx>1?'check':'bus')}</span><div><strong>Take ${t.route.name}</strong><small>Look for Bus ${t.bus.id} · ${mins(t.dropoff-t.pickup)} min ride<br>Get off at ${t.exit.name}<br>${boardingDirection(t)}</small></div></div><div class="step ${phaseIdx===2?'active':''}"><span class="step-icon">${icon('pin')}</span><div><strong>${state.destination.name}</strong><small>${mins(t.walkOut)} min walk from the exit stop</small></div></div></div><div class="notice">${phase==='walk'?`Follow the dotted path to ${t.board.name} on ${t.board.street}. ${boardingDirection(t)}`:phase==='wait'?`Look for the ${t.route.name} route sign. Your bus is highlighted on the map.`:phase==='ride'?`Get off at ${t.exit.name}. We’ll alert you before your stop.`:'Follow the dotted path to your destination.'}</div><div class="progress-bar"><div id="trip-progress" class="progress-fill"></div></div><div class="selection-note">Departs ${clockTime(t.pickup)} · Arrive ${clockTime(t.dropoff+t.walkOut)}</div><button class="secondary" id="next-stage" style="width:100%;margin-top:12px">Next demo stage →</button>${assistantEntry()}<button class="text-button" id="cancel-trip">End trip</button>`}
 function routesContent(){
  const focusId=effectiveMapFocus(),tripLock=!!state.trip,focusRoute=focusId?routes.find(r=>r.id===focusId):null;
  const tripNote=tripLock?'<div class="notice trip-focus-note" role="status">'+icon('info')+'<span>Trip in progress — your selected route remains highlighted.</span></div>':'';
@@ -113,8 +114,138 @@ function poiCardContent(){
   +'<button class="secondary" id="poi-start" type="button"'+(locked?' disabled aria-disabled="true"':'')+'>Set as Starting Point</button></div>'
   +'<p class="selection-note">Illustrative marker position · simulated demo data</p></div>';
 }
-function renderPanel(){const scroll=panel.scrollTop;$$('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===state.tab));if(state.selectedPoi){state.phase=state.trip?tripPhase():null;panel.innerHTML=poiCardContent();}else panel.innerHTML=state.tab==='routes'?routesContent():state.tab==='saved'?savedContent():state.trip?trackingContent():state.destination?resultsContent():homeContent();bindPanel();panel.scrollTop=scroll;drawFocus()}
+function assistantLogHtml(){return state.assistant.log.map(m=>`<div class="assistant-msg ${m.role}"><p>${escapeHtml(m.text)}</p></div>`).join('')}
+function assistantDraftHtml(){
+ const o=state.assistant.draftOrigin,d=state.assistant.draftDestination,pending=state.assistant.pending;
+ if(!pending)return '';
+ const locked=!!state.trip;
+ if(pending.kind==='clarify'&&pending.options?.length){
+  return `<div class="assistant-actions"><p class="subtle">${escapeHtml(pending.message)}</p>${pending.options.map(p=>`<button type="button" class="suggestion" data-assistant-pick="${p.id}" data-assistant-slot="${pending.slot||'destination'}"><span class="place-icon">${icon(p.type)}</span><span class="place-copy"><strong>${escapeHtml(p.name)}</strong><small>${escapeHtml(p.category)}</small></span></button>`).join('')}</div>`;
+ }
+ if(pending.kind==='need_origin'&&pending.destination){
+  const suggest=pending.originSuggestion||state.origin;
+  return `<div class="assistant-actions"><p class="subtle">${escapeHtml(pending.message)}</p>
+   <button type="button" class="primary" id="assistant-use-origin" ${locked?'disabled':''}>Start from ${escapeHtml(suggest.name)} (demo · not GPS)</button>
+   <div class="section-label">Or choose another start</div>
+   ${places.map(p=>`<button type="button" class="suggestion" data-assistant-pick="${p.id}" data-assistant-slot="origin"><span class="place-icon">${icon(p.type)}</span><span class="place-copy"><strong>${escapeHtml(p.name)}</strong><small>${escapeHtml(p.category)}</small></span></button>`).join('')}</div>`;
+ }
+ if(pending.kind==='confirm'&&o&&d){
+  return `<div class="assistant-confirm"><p class="subtle">Confirm trip · simulated assistant</p>
+   <div class="assistant-pair"><span><small>From</small><strong>${escapeHtml(o.name)}</strong></span><span><small>To</small><strong>${escapeHtml(d.name)}</strong></span></div>
+   <button type="button" class="primary" id="assistant-confirm" ${locked?'disabled':''}>Confirm &amp; plan ride ${icon('arrow')}</button>
+   <div class="assistant-correct"><label>Correct start<select id="assistant-origin-select">${places.map(p=>`<option value="${p.id}" ${p.id===o.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select></label>
+   <label>Correct destination<select id="assistant-dest-select">${places.map(p=>`<option value="${p.id}" ${p.id===d.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select></label>
+   <button type="button" class="secondary" id="assistant-apply-correction" ${locked?'disabled':''}>Update places</button></div>
+   ${locked?'<div class="notice trip-focus-note" role="status">'+icon('info')+'<span>Trip in progress — end your trip before applying a new plan.</span></div>':''}</div>`;
+ }
+ if(pending.kind==='unsupported'||pending.kind==='refuse_live'||pending.kind==='refuse_off_topic'||pending.kind==='same_place'){
+  return `<div class="assistant-actions"><button type="button" class="secondary" id="assistant-manual">Use manual destination entry</button></div>`;
+ }
+ return '';
+}
+function assistantContent(){
+ const examples=CampusAssistant.EXAMPLES.map(ex=>`<button type="button" class="assistant-chip" data-assistant-example="${escapeHtml(ex.id)}">${escapeHtml(ex.label)}</button>`).join('');
+ return `<div class="assistant-panel" id="assistant-panel">
+  <div class="back-row"><button type="button" class="back-button" id="close-assistant">${icon('back')}Ride</button></div>
+  <p class="eyebrow">Trip assistant</p><h1>Ask in plain language.</h1>
+  <div class="notice assistant-sim" role="status">${icon('info')}<span>Simulated assistant for this class prototype. Responses and transit information are not live. Actual AI accuracy cannot be validated here.</span></div>
+  <div class="assistant-log" id="assistant-log" aria-live="polite">${assistantLogHtml()||'<div class="assistant-msg bot"><p>Describe a campus trip, or tap an example. I only use supported places already in this demo.</p></div>'}</div>
+  ${assistantDraftHtml()}
+  <div class="section-label">Examples</div><div class="assistant-chips">${examples}</div>
+  <form id="assistant-form" class="assistant-form"><label class="screen-reader" for="assistant-input">Trip request</label>
+  <input id="assistant-input" name="assistant" autocomplete="off" spellcheck="true" maxlength="180" placeholder="e.g. Presidential to Bidgood">
+  <button class="primary" type="submit">Send</button></form>
+  <p class="selection-note">Nothing is saved off this device. Manual fields still work when you leave this panel.</p></div>`;
+}
+function openAssistant(){
+ state.selectedPoi=null;state.tab='ride';state.editing=null;state.assistantOpen=true;
+ if(!state.assistant.log.length)state.assistant.log=[];
+ renderPanel();panel.scrollTop=0;
+ if(typeof revealSheet==='function')revealSheet();
+ // Expand after the opening click finishes bubbling so mobile sheet handlers cannot collapse it.
+ if(typeof setSheet==='function'&&innerWidth<=680){
+  setSheet(2,true);
+  setTimeout(()=>{setSheet(2,true);panel.scrollTop=0},0);
+ }
+ // Keep the simulated disclosure in view; do not scroll the sheet to the input.
+ $('#assistant-input')?.focus({preventScroll:true});
+ panel.scrollTop=0;
+ announce('Trip assistant open. Simulated responses.');
+}
+function closeAssistant(){state.assistantOpen=false;state.assistant.pending=null;renderPanel();panel.scrollTop=0}
+function pushAssistant(role,text){state.assistant.log.push({role,text});if(state.assistant.log.length>12)state.assistant.log=state.assistant.log.slice(-12)}
+function assistantPlaceById(id){return id?places.find(p=>p.id===id)||null:null}
+function runAssistantInterpret(text){
+ const originBefore=state.origin,destBefore=state.destination;
+ const result=CampusAssistant.interpret(text,{places,originSuggestion:state.origin});
+ CampusAssistant.assertKnownIds(result,places);
+ pushAssistant('user',text);
+ pushAssistant('bot',result.message);
+ state.assistant.pending=result;
+ // Preserve already-resolved locations from clarify drafts (do not drop Bidgood when asking which dorm).
+ state.assistant.draftOrigin=result.origin||assistantPlaceById(result.draft?.origin)||null;
+ state.assistant.draftDestination=result.destination||assistantPlaceById(result.draft?.destination)||null;
+ // AD-AI-2: interpret never mutates endpoints
+ if(state.origin!==originBefore||state.destination!==destBefore)throw new Error('Assistant mutated trip fields on interpret');
+ renderPanel();panel.scrollTop=panel.scrollHeight;
+}
+function applyAssistantTrip(origin,destination){
+ if(state.trip){toast('End your trip to plan a new one');return}
+ if(!origin||!destination)return;
+ if(origin.id===destination.id){toast('Choose two different places');return}
+ state.assistantOpen=false;state.assistant.pending=null;state.selectedPoi=null;
+ state.walkPreview=false;state.origin=origin;state.destination=destination;state.tab='ride';
+ state.route=null;state.trip=null;state.selected=null;state.mapFocusRouteId=null;planCache=null;
+ renderPanel();panel.scrollTop=0;centerOnPlaces();announce(`Planning ${origin.name} to ${destination.name}`);
+}
+function renderPanel(){const scroll=panel.scrollTop;$$('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===state.tab));if(state.selectedPoi){state.phase=state.trip?tripPhase():null;panel.innerHTML=poiCardContent();}else if(state.assistantOpen&&state.tab==='ride'){panel.innerHTML=assistantContent();}else panel.innerHTML=state.tab==='routes'?routesContent():state.tab==='saved'?savedContent():state.trip?trackingContent():state.destination?resultsContent():homeContent();bindPanel();panel.scrollTop=scroll;drawFocus()}
 function bindPanel(){
+ $('#open-assistant')?.addEventListener('click',openAssistant);
+ $('#close-assistant')?.addEventListener('click',closeAssistant);
+ $('#assistant-form')?.addEventListener('submit',e=>{e.preventDefault();const v=$('#assistant-input')?.value.trim();if(!v)return;runAssistantInterpret(v);const input=$('#assistant-input');if(input)input.value=''});
+ $$('[data-assistant-example]').forEach(b=>b.addEventListener('click',()=>{const ex=CampusAssistant.EXAMPLES.find(x=>x.id===b.dataset.assistantExample);if(ex)runAssistantInterpret(ex.text)}));
+ $$('[data-assistant-pick]').forEach(b=>b.addEventListener('click',()=>{
+  if(state.trip){toast('End your trip to change your start or destination');return}
+  const place=places.find(p=>p.id===b.dataset.assistantPick);if(!place)return;
+  const slot=b.dataset.assistantSlot||'destination';
+  if(slot==='origin')state.assistant.draftOrigin=place;else state.assistant.draftDestination=place;
+  const o=state.assistant.draftOrigin,d=state.assistant.draftDestination;
+  const remaining=(state.assistant.pending?.remaining||[]).filter(step=>{
+   if(step.slot==='origin'&&o)return false;
+   if(step.slot==='destination'&&d)return false;
+   return true;
+  });
+  if(o&&d){
+   state.assistant.pending={kind:'confirm',message:`Updated to ${o.name} → ${d.name}. Confirm to open the route planner.`,origin:o,destination:d,placeIds:[o.id,d.id]};
+   pushAssistant('bot',state.assistant.pending.message);
+  }else if(remaining.length){
+   const next=remaining[0];
+   state.assistant.pending={kind:'clarify',message:next.prompt+' Choose one of the supported places below.',slot:next.slot,options:next.options,remaining:remaining.slice(1),draft:{origin:o?.id||null,destination:d?.id||null},placeIds:[...new Set(next.options.map(p=>p.id).concat(o?[o.id]:[],d?[d.id]:[]))]};
+   pushAssistant('bot',state.assistant.pending.message);
+  }else if(slot==='destination'&&!o){
+   state.assistant.pending={kind:'need_origin',message:`Destination set to ${place.name}. Confirm a starting place (demo location is not GPS).`,destination:place,originSuggestion:state.origin,placeIds:[place.id,state.origin.id]};
+   state.assistant.draftDestination=place;pushAssistant('bot',state.assistant.pending.message);
+  }
+  renderPanel();
+ }));
+ $('#assistant-use-origin')?.addEventListener('click',()=>{
+  if(state.trip){toast('End your trip to change your start or destination');return}
+  const d=state.assistant.draftDestination||state.assistant.pending?.destination;if(!d)return;
+  const o=state.assistant.pending?.originSuggestion||state.origin;
+  state.assistant.draftOrigin=o;state.assistant.draftDestination=d;
+  state.assistant.pending={kind:'confirm',message:`Confirm ${o.name} → ${d.name}. Starting point is a demo location, not GPS.`,origin:o,destination:d,placeIds:[o.id,d.id]};
+  pushAssistant('bot',state.assistant.pending.message);renderPanel();
+ });
+ $('#assistant-apply-correction')?.addEventListener('click',()=>{
+  const o=places.find(p=>p.id===$('#assistant-origin-select')?.value),d=places.find(p=>p.id===$('#assistant-dest-select')?.value);
+  if(!o||!d)return;state.assistant.draftOrigin=o;state.assistant.draftDestination=d;
+  state.assistant.pending={kind:'confirm',message:`Updated to ${o.name} → ${d.name}. Confirm when ready.`,origin:o,destination:d,placeIds:[o.id,d.id]};
+  pushAssistant('bot',state.assistant.pending.message);renderPanel();
+ });
+ $('#assistant-confirm')?.addEventListener('click',()=>{
+  applyAssistantTrip(state.assistant.draftOrigin,state.assistant.draftDestination);
+ });
+ $('#assistant-manual')?.addEventListener('click',()=>{closeAssistant();$('#destination-input')?.focus()});
  $('#poi-close')?.addEventListener('click',()=>dismissPoi(true));
  $('#poi-directions')?.addEventListener('click',poiGetDirections);
  $('#poi-start')?.addEventListener('click',poiSetStart);
@@ -139,7 +270,7 @@ function showSuggestions(q){const box=$('#suggestions');if(!box)return;const que
 function choosePlace(p){state.walkPreview=false;state[state.editing||'destination']=p;state.trip=null;state.selected=null;state.mapFocusRouteId=null;state.editing=null;renderPanel();centerOnPlaces()}
 /** Map POI actions. Selecting only previews; endpoints change solely via the card buttons (AD-POI-1). */
 function selectPoi(p){
- state.editing=null;state.selectedPoi=p;renderPanel();panel.scrollTop=0;
+ state.editing=null;state.assistantOpen=false;state.selectedPoi=p;renderPanel();panel.scrollTop=0;
  if(typeof revealSheet==='function')revealSheet();
  revealPoi(p);$('#poi-card')?.focus({preventScroll:true});announce(`${p.name}. Place details open.`);
 }
@@ -168,7 +299,7 @@ function revealPoi(p){
  if(sx>pad&&sx<rect.width-pad&&sy>pad+50&&sy<visible-pad)return;
  state.followMap=false;view={...view,x:p.visual.x-view.w/2,y:p.visual.y-view.h*(visible/rect.height)/2};setView();
 }
-function resetDestination(){state.selectedPoi=null;state.walkPreview=false;state.followMap=false;state.destination=null;state.trip=null;state.selected=null;state.mapFocusRouteId=null;state.phase=null;state.tab='ride';renderPanel();panel.scrollTop=0;resetMap()}
+function resetDestination(){state.selectedPoi=null;state.assistantOpen=false;state.walkPreview=false;state.followMap=false;state.destination=null;state.trip=null;state.selected=null;state.mapFocusRouteId=null;state.phase=null;state.tab='ride';renderPanel();panel.scrollTop=0;resetMap()}
 function announce(s){$('#announcement').textContent=s}
 function svgEl(tag,attrs={},html=''){const e=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));if(html)e.innerHTML=html;return e}
 /** Interactive POI marker anchored on the building footprint (`visual`), not the routing entrance. */
@@ -216,9 +347,9 @@ function stopPan(){pan=null;map.classList.remove('dragging');setTimeout(()=>didP
 map.addEventListener('click',e=>{if(didPan||!state.selectedPoi||e.target.closest('.poi-marker,.bus-marker'))return;dismissPoi()});
 $('#zoom-in').addEventListener('click',()=>zoom(.8));$('#zoom-out').addEventListener('click',()=>zoom(1.25));$('#recenter').addEventListener('click',()=>{if(state.trip){state.followMap=true;updateTraveler();toast('Following your trip');}else state.tab==='routes'&&state.route?centerRoute(state.route):centerOnPlaces();});
 function pauseUI(){$('#pause').innerHTML=icon(state.paused?'play':'pause');$('#pause').setAttribute('aria-label',state.paused?'Resume simulation':'Pause simulation')}
-$('#pause').addEventListener('click',()=>{state.paused=!state.paused;pauseUI();toast(state.paused?'Simulation paused':'Simulation resumed')});$('#speed').addEventListener('click',()=>{const speeds=[1,2,3];state.speed=speeds[(speeds.indexOf(state.speed)+1)%speeds.length];$('#speed').textContent=state.speed+'×';toast(`Simulation speed: ${state.speed}×`)});$('#reset').addEventListener('click',()=>{state.selectedPoi=null;state.sim=0;state.trip=null;state.selected=null;state.route=null;state.mapFocusRouteId=null;state.phase=null;state.tab='ride';state.paused=false;state.speed=3;$('#speed').textContent='3×';pauseUI();planCache=null;renderPanel();resetMap();toast('Presentation reset')});$('#brand').addEventListener('click',()=>{resetDestination();state.origin=places[0];renderPanel()});$$('[data-tab]').forEach(b=>b.addEventListener('click',()=>{state.selectedPoi=null;state.tab=b.dataset.tab;if(state.tab!=='routes')state.route=null;renderPanel();panel.scrollTop=0;if(state.tab==='routes')resetMap()}));
+$('#pause').addEventListener('click',()=>{state.paused=!state.paused;pauseUI();toast(state.paused?'Simulation paused':'Simulation resumed')});$('#speed').addEventListener('click',()=>{const speeds=[1,2,3];state.speed=speeds[(speeds.indexOf(state.speed)+1)%speeds.length];$('#speed').textContent=state.speed+'×';toast(`Simulation speed: ${state.speed}×`)});$('#reset').addEventListener('click',()=>{state.selectedPoi=null;state.assistantOpen=false;state.assistant={log:[],draftOrigin:null,draftDestination:null,pending:null};state.sim=0;state.trip=null;state.selected=null;state.route=null;state.mapFocusRouteId=null;state.phase=null;state.tab='ride';state.paused=false;state.speed=3;$('#speed').textContent='3×';pauseUI();planCache=null;renderPanel();resetMap();toast('Presentation reset')});$('#brand').addEventListener('click',()=>{state.assistantOpen=false;resetDestination();state.origin=places[0];renderPanel()});$$('[data-tab]').forEach(b=>b.addEventListener('click',()=>{state.selectedPoi=null;state.assistantOpen=false;state.tab=b.dataset.tab;if(state.tab!=='routes')state.route=null;renderPanel();panel.scrollTop=0;if(state.tab==='routes')resetMap()}));
 let priorFocus;function openAbout(){priorFocus=document.activeElement;$('#about').classList.remove('hidden');$('#close-about').focus()}function closeAbout(){$('#about').classList.add('hidden');priorFocus?.focus()}$('#about-button').addEventListener('click',openAbout);$('#close-about').addEventListener('click',closeAbout);$('#start-demo').addEventListener('click',closeAbout);$('#about').addEventListener('click',e=>{if(e.target===$('#about'))closeAbout()});document.addEventListener('keydown',e=>{if(!$('#about').classList.contains('hidden')){if(e.key==='Escape')closeAbout();if(e.key==='Tab'){const items=$('#about').querySelectorAll('button,a[href]'),first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&state.selectedPoi&&$('#about').classList.contains('hidden')&&!document.querySelector('.welcome-overlay'))dismissPoi(true)});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape'||!$('#about').classList.contains('hidden')||document.querySelector('.welcome-overlay'))return;if(state.selectedPoi)dismissPoi(true);else if(state.assistantOpen)closeAssistant()});
 document.addEventListener('click',e=>{if(!e.target.closest('.location-box,.suggestions')){const box=$('#suggestions');box?.classList.add('hidden');if(state.editing){const field=$(`#${state.editing}-input`);if(field)field.value=state[state.editing]?.name||'';state.editing=null;const follow=$('#follow');if(follow)follow.disabled=false}}});
 function frame(now){if(lastFrame!==null&&!state.paused)state.sim+=Math.min((now-lastFrame)/1000,.1)*state.speed;lastFrame=now;for(const b of buses){const p=busPosition(b),e=$(`[data-bus="${b.id}"]`);e.setAttribute('transform',`translate(${p.x},${p.y})`);e.querySelector('.bus-turn').setAttribute('transform',`rotate(${p.angle}) scale(.57)`)}updateTraveler();if(now-lastRefresh>1000){lastRefresh=now;if(state.trip){updateTracking();checkTripAlerts();}else if(state.destination&&state.tab==='ride'&&!state.editing){state.results=plans();const options=$('#options');if(options){options.innerHTML=state.results.map((p,i)=>optionContent(p,i)).join('');options.querySelectorAll('[data-option]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.option;if(state.selected===id&&state.mapFocusRouteId===id){state.mapFocusRouteId=null;drawFocus();return;}state.selected=id;state.mapFocusRouteId=id;renderPanel()}));const p=state.results.find(p=>p.route.id===state.selected);if(p&&$('#breakdown'))$('#breakdown').innerHTML=breakdown(p)}}}requestAnimationFrame(frame)}
 
@@ -244,4 +375,4 @@ function checkTripAlerts(){const t=state.trip;if(!t)return;state.alerts??=new Se
 }
 hydrateIcons();makeMap();renderPanel();pauseUI();resetMap();requestAnimationFrame(frame);new ResizeObserver(()=>{if(!pan)state.destination?centerOnPlaces():resetMap()}).observe($('.map-area'));
 // Expose immutable summaries for lightweight, local presentation QA.
-window.campusDemo={get summary(){return{time:state.sim,paused:state.paused,phase:tripPhase(),routes:routes.length,buses:buses.length,destination:state.destination?.name||null,origin:state.origin.name,selectedPoi:state.selectedPoi?.id||null,mapFocusRouteId:effectiveMapFocus()}},get pois(){return places.map(p=>({id:p.id,name:p.name,visual:{x:p.visual.x,y:p.visual.y},entrance:{x:p.x,y:p.y},check:!!p.visual.check}))},get plans(){return plans().map(p=>({route:p.route.name,walk:p.walkIn,pickup:p.pickup,dropoff:p.dropoff,total:p.total,bus:p.bus.id}))},get mapVisibility(){const vis=e=>e.style.display!=='none';return{lines:$$('[data-line]').filter(vis).map(e=>e.dataset.line),unders:$$('[data-under]').filter(vis).map(e=>e.dataset.under),buses:$$('[data-bus]').filter(vis).map(e=>e.dataset.bus),stops:$$('[data-stop-route]').filter(vis).length}}};
+window.campusDemo={get summary(){return{time:state.sim,paused:state.paused,phase:tripPhase(),routes:routes.length,buses:buses.length,destination:state.destination?.name||null,origin:state.origin.name,selectedPoi:state.selectedPoi?.id||null,assistantOpen:state.assistantOpen,mapFocusRouteId:effectiveMapFocus()}},get pois(){return places.map(p=>({id:p.id,name:p.name,visual:{x:p.visual.x,y:p.visual.y},entrance:{x:p.x,y:p.y},check:!!p.visual.check}))},get plans(){return plans().map(p=>({route:p.route.name,walk:p.walkIn,pickup:p.pickup,dropoff:p.dropoff,total:p.total,bus:p.bus.id}))},get mapVisibility(){const vis=e=>e.style.display!=='none';return{lines:$$('[data-line]').filter(vis).map(e=>e.dataset.line),unders:$$('[data-under]').filter(vis).map(e=>e.dataset.under),buses:$$('[data-bus]').filter(vis).map(e=>e.dataset.bus),stops:$$('[data-stop-route]').filter(vis).length}}};

@@ -9,8 +9,14 @@ grip.addEventListener('pointerdown',e=>{sheetDrag={y:e.clientY,h:sheet.getBoundi
 grip.addEventListener('pointermove',e=>{if(!sheetDrag)return;const dy=sheetDrag.y-e.clientY;if(Math.abs(dy)>6)sheetDrag.moved=true;const total=document.querySelector('.workspace').clientHeight;sheet.style.setProperty('--sheet-height',Math.max(19,Math.min(88,(sheetDrag.h+dy)/total*100))+'%')});
 grip.addEventListener('pointerup',()=>{if(!sheetDrag)return;const moved=sheetDrag.moved,h=sheet.clientHeight/document.querySelector('.workspace').clientHeight*100;sheet.classList.remove('dragging-sheet');if(moved)setSheet(h<35?0:h>70?2:1);else setSheet((sheetLevel+1)%3);setTimeout(()=>sheetDrag=null,0)});
 grip.addEventListener('pointercancel',()=>{sheetDrag=null;sheet.classList.remove('dragging-sheet');setSheet(sheetLevel)});
-document.addEventListener('focusin',e=>{if(e.target.matches('.field input')&&innerWidth<=680)setSheet(2)});
-document.addEventListener('click',e=>{if(e.target.closest('#follow,[data-suggestion],[data-place]')&&innerWidth<=680)setSheet(1);if(e.target.closest('[data-tab]')&&innerWidth<=680)setSheet(1)});
+document.addEventListener('focusin',e=>{if(e.target.matches('.field input,#assistant-input')&&innerWidth<=680)setSheet(2)});
+document.addEventListener('click',e=>{
+ if(innerWidth>680)return;
+ // Opening/using the assistant keeps an expanded sheet; do not collapse on the same click bubble.
+ if(e.target.closest('#open-assistant,#assistant-panel,#close-assistant'))return;
+ if(e.target.closest('#follow,[data-suggestion],[data-place],#assistant-confirm'))setSheet(1);
+ if(e.target.closest('[data-tab]'))setSheet(1);
+});
 const priorRender=renderPanel;renderPanel=function(){priorRender();if(state.destination&&!state.trip&&state.tab==='ride'){const b=document.createElement('button');b.className='text-button';b.textContent='Refresh departures';b.id='refresh-departures';b.addEventListener('click',refreshPlans);document.querySelector('.ride-heading')?.after(b)}};
 const oldFit=fitBounds;fitBounds=function(x1,y1,x2,y2){if(innerWidth>680)return oldFit(x1,y1,x2,y2);const rect=map.getBoundingClientRect(),visible=Math.max(140,rect.height-sheet.getBoundingClientRect().height-30),aspect=rect.width/visible;let h=Math.max(220,y2-y1),w=Math.max(220,x2-x1);if(w/h<aspect)w=h*aspect;else h=w/aspect;view={x:(x1+x2)/2-w/2,y:(y1+y2)/2-h/2,w,h:h*rect.height/visible};setView()};
 function welcome(){const overlay=document.createElement('div');overlay.className='welcome-overlay';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label','Welcome to Campus');overlay.innerHTML='<div class="welcome-sheet"><div class="welcome-grip"></div><h2>Your campus.<br>Your next stop.</h2><p>Find your stop. Follow your bus.<br>Get where you need to be.</p><button class="primary" id="welcome-go">Where are you headed? →</button><p class="welcome-caption">Campus presentation demo · Simulated service</p></div>';document.body.append(overlay);const start=overlay.querySelector('button');function close(){overlay.remove();setSheet(1);document.querySelector('#destination-input')?.focus();setSheet(1)}start.addEventListener('click',close);overlay.addEventListener('keydown',e=>{if(e.key==='Escape')close();if(e.key==='Tab'){e.preventDefault();start.focus()}});start.focus()}

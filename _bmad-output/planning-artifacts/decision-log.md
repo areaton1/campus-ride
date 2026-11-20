@@ -15,10 +15,27 @@ Project decisions that keep implementation consistent. Course documents under `d
 | AD-POI-4 | 2026-11-18 | Adopted | Keep visual POI marker coordinates (`visual:{x,y}`) SVG-footprint-aligned against the `buildings` layer, separate from routing entrance coordinates (`places.x|y` synced from `CampusNetwork.entrances`). Illustrative alignment only — not survey-grade. Shape may later hold OSM ids; do not migrate coords or change the route network in Feature 2. | Marker placement vs walking graph | Gluing markers to entrance dots; false “officially verified” claims; breaking routing when adjusting visuals |
 | AD-POI-5 | 2026-11-18 | Adopted | While `state.trip` is active, POIs may be inspected (card opens) but Get Directions / Set as Starting Point are disabled — trip endpoints cannot change from the map. | Trip integrity during tracking | Silent trip cancel / endpoint hijack mid-demo |
 | AD-POI-6 | 2026-11-18 | Adopted | Controlled edit of `dist/campus-map.svg`: remove only the `building numbers` layer (path-outlined building names). Keep `road names` for navigation and keep all geography layers (`buildings`, `streets 2001`, water, railroad). Leave the `Bryce` lettering layer unchanged for now. Preserve SVG-as-`<image>` architecture — not an OSM migration. Do not claim a fully label-free map. | Basemap building-name declutter | Damaging footprints/roads; deleting useful road labels; scope creep into OSM swap; overclaiming label-free UI |
+| AD-AI-1 | 2026-11-18 | Adopted | Scripted local interpreter only (`dist/ai-assistant.js`); no external AI, paid APIs, or new frameworks. | US-17 runtime | Nondeterministic demos; course scope creep; dependency/API cost |
+| AD-AI-2 | 2026-11-18 | Adopted | Confirm-before-apply: interpreting a message never mutates `state.origin` / `state.destination`. | Assistant → planner boundary | Accidental trip planning from bad parses |
+| AD-AI-3 | 2026-11-18 | Adopted | Place universe = existing `places` names/aliases only; refuse unknown/off-campus without inventing IDs. | Matching corpus | Hallucinated buildings |
+| AD-AI-4 | 2026-11-18 | Adopted | Assistant chat must not invent ETAs, stops, routes, or geometry; existing `computePlans` / results UI remains authoritative after handoff. | Trust / SOW R4 | Presenting scripted chat as live transit truth |
+| AD-AI-5 | 2026-11-18 | Adopted | While `state.trip` is active, assistant cannot change endpoints (mirror AD-POI-5). | Trip integrity | Mid-demo endpoint hijack |
+| AD-AI-6 | 2026-11-18 | Adopted | Assistant is an alternate Ride-tab entry; manual fields and POI actions remain independent when assistant is closed. | US-01 / US-02 preservation | Breaking core trip input |
+| AD-AI-7 | 2026-11-18 | Adopted | US-17 does not expand the place catalog, route catalog, or OSM basemap; research branch stays deferred. | Branch scope | Scope creep vs Dec 4 deadline |
+
+### Note on graded BMAD Decision Log vs architecture AD-*
+
+MIS 430’s graded **BMAD Decision Log** records where the team changed, overrode, or rejected BMAD skill output (compiled from weekly status reports). The **AD-AI-*** rows above are **technical architecture decisions** for implementation consistency (same pattern as AD-ISO / AD-POI). They are **not** fabricated graded override entries. Jade owns whether any US-17 item also belongs in the course Decision Log deliverable.
 
 ## Proposed course-doc updates (not applied)
 
 - **Product Backlog:** Strengthen US-04 (route highlighted on map) to include optional single-route isolation; clarify US-13 (view multiple routes) as the default overview restored by Show All Routes / deselect.
 - **SOW / future-state:** Optional note that the interactive map supports isolating one illustrative corridor for readability — still simulated, not official Crimson Ride.
+- **SOW:** Consider naming the simulated AI trip assistant in prioritized requirements / solution approach to match backlog Must US-17 (Jade).
+- **Future-state process model:** Optional alternate path into destination entry (assistant → confirm → existing F6/F7 flow).
+- **Future-state data model:** Optional entities for assistant session / interpreted place candidates (prototype stores nothing durable).
+- **Harm & Guardrail Analysis:** Overtrust of simulated AI, invented places, live-data hallucination — mitigations: disclaimer, refuse intents, confirm-before-apply (Jade when authoring/updating).
+- **User Testing Plan:** Trust-calibration observation that students understand “simulated” assistant limits.
+- **BMAD Decision Log (course deliverable):** Only record genuine BMAD overrides from status reports — do not invent entries from AD-AI-* alone.
 
-Owners: Jade (backlog wording), Brett (architecture), Ashton (UI implementation).
+Owners: Jade (backlog / SOW / harms / course Decision Log wording), Brett (architecture), Ashton (UI implementation).
