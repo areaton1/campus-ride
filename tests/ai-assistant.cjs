@@ -48,9 +48,69 @@ function interpret(text) {
 {
   const r = interpret('Go to the dorm');
   assert.equal(r.kind, 'clarify');
+  assert.equal(r.slot, 'destination');
   assert.ok(r.options.length >= 2);
   assert.ok(r.options.every(p => p.type === 'home'));
-  assert.ok(!r.origin && !r.destination || true);
+  assert.equal(r.origin, undefined);
+  assert.equal(r.destination, undefined);
+  assert.equal(r.draft?.origin ?? null, null);
+  assert.equal(r.draft?.destination ?? null, null);
+}
+
+// Ambiguous origin must clarify — never silently pick the first "dorm" alias
+{
+  const before = { originId: origin.id, dest: null };
+  const r = interpret('From dorm to Bidgood');
+  assert.equal(r.kind, 'clarify');
+  assert.equal(r.slot, 'origin');
+  assert.ok(r.options.length >= 2);
+  assert.ok(r.options.every(p => p.type === 'home'));
+  assert.ok(!r.origin, 'must not silently assign an origin');
+  assert.equal(r.draft?.origin ?? null, null);
+  assert.equal(r.draft?.destination, 'bidgood');
+  assert.ok(r.placeIds.includes('bidgood'));
+  assert.equal(origin.id, before.originId, 'trip endpoints unchanged on interpret');
+}
+
+// Known origin retained while clarifying ambiguous destination
+{
+  const r = interpret('From Bidgood to dorm');
+  assert.equal(r.kind, 'clarify');
+  assert.equal(r.slot, 'destination');
+  assert.ok(r.options.length >= 2);
+  assert.ok(r.options.every(p => p.type === 'home'));
+  assert.equal(r.draft?.origin, 'bidgood');
+  assert.equal(r.draft?.destination ?? null, null);
+  assert.ok(r.placeIds.includes('bidgood'));
+  // UI contract: draft id must resolve to Bidgood, not the default origin suggestion (Presidential).
+  const draftOrigin = places.find(p => p.id === r.draft.origin);
+  assert.equal(draftOrigin.id, 'bidgood');
+  assert.notEqual(draftOrigin.id, origin.id);
+}
+
+// Both slots ambiguous — queue origin clarify first, keep no silent assignments
+{
+  const r = interpret('From dorm to dorm');
+  assert.equal(r.kind, 'clarify');
+  assert.equal(r.slot, 'origin');
+  assert.ok(Array.isArray(r.remaining) && r.remaining.length >= 1);
+  assert.equal(r.remaining[0].slot, 'destination');
+  assert.equal(r.draft?.origin ?? null, null);
+  assert.equal(r.draft?.destination ?? null, null);
+  assert.ok(!r.origin && !r.destination);
+}
+
+// Draft hydration contract used by runAssistantInterpret (preserve Bidgood through dest clarify)
+{
+  const r = interpret('From Bidgood to dorm');
+  const draftOrigin = places.find(p => p.id === (r.origin && r.origin.id || r.draft && r.draft.origin));
+  const draftDestination = places.find(p => p.id === (r.destination && r.destination.id || r.draft && r.draft.destination)) || null;
+  assert.equal(draftOrigin.id, 'bidgood');
+  assert.equal(draftDestination, null);
+  const chosen = places.find(p => p.id === 'tutwiler');
+  assert.equal(draftOrigin.id, 'bidgood');
+  assert.equal(chosen.id, 'tutwiler');
+  assert.notEqual(draftOrigin.id, origin.id);
 }
 
 // Missing origin
@@ -205,6 +265,8 @@ console.log(JSON.stringify({
   supportedOk: true,
   aliasOk: true,
   ambiguousOk: true,
+  ambiguousOriginOk: true,
+  draftOriginRetainedOk: true,
   missingOriginOk: true,
   unsupportedOk: true,
   liveRefuseOk: true,

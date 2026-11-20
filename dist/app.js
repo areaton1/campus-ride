@@ -174,6 +174,7 @@ function openAssistant(){
 }
 function closeAssistant(){state.assistantOpen=false;state.assistant.pending=null;renderPanel();panel.scrollTop=0}
 function pushAssistant(role,text){state.assistant.log.push({role,text});if(state.assistant.log.length>12)state.assistant.log=state.assistant.log.slice(-12)}
+function assistantPlaceById(id){return id?places.find(p=>p.id===id)||null:null}
 function runAssistantInterpret(text){
  const originBefore=state.origin,destBefore=state.destination;
  const result=CampusAssistant.interpret(text,{places,originSuggestion:state.origin});
@@ -181,8 +182,9 @@ function runAssistantInterpret(text){
  pushAssistant('user',text);
  pushAssistant('bot',result.message);
  state.assistant.pending=result;
- state.assistant.draftOrigin=result.origin||null;
- state.assistant.draftDestination=result.destination||null;
+ // Preserve already-resolved locations from clarify drafts (do not drop Bidgood when asking which dorm).
+ state.assistant.draftOrigin=result.origin||assistantPlaceById(result.draft?.origin)||null;
+ state.assistant.draftDestination=result.destination||assistantPlaceById(result.draft?.destination)||null;
  // AD-AI-2: interpret never mutates endpoints
  if(state.origin!==originBefore||state.destination!==destBefore)throw new Error('Assistant mutated trip fields on interpret');
  renderPanel();panel.scrollTop=panel.scrollHeight;
@@ -208,13 +210,22 @@ function bindPanel(){
   const slot=b.dataset.assistantSlot||'destination';
   if(slot==='origin')state.assistant.draftOrigin=place;else state.assistant.draftDestination=place;
   const o=state.assistant.draftOrigin,d=state.assistant.draftDestination;
+  const remaining=(state.assistant.pending?.remaining||[]).filter(step=>{
+   if(step.slot==='origin'&&o)return false;
+   if(step.slot==='destination'&&d)return false;
+   return true;
+  });
   if(o&&d){
    state.assistant.pending={kind:'confirm',message:`Updated to ${o.name} → ${d.name}. Confirm to open the route planner.`,origin:o,destination:d,placeIds:[o.id,d.id]};
+   pushAssistant('bot',state.assistant.pending.message);
+  }else if(remaining.length){
+   const next=remaining[0];
+   state.assistant.pending={kind:'clarify',message:next.prompt+' Choose one of the supported places below.',slot:next.slot,options:next.options,remaining:remaining.slice(1),draft:{origin:o?.id||null,destination:d?.id||null},placeIds:[...new Set(next.options.map(p=>p.id).concat(o?[o.id]:[],d?[d.id]:[]))]};
    pushAssistant('bot',state.assistant.pending.message);
   }else if(slot==='destination'&&!o){
    state.assistant.pending={kind:'need_origin',message:`Destination set to ${place.name}. Confirm a starting place (demo location is not GPS).`,destination:place,originSuggestion:state.origin,placeIds:[place.id,state.origin.id]};
    state.assistant.draftDestination=place;pushAssistant('bot',state.assistant.pending.message);
-  }else renderPanel();
+  }
   renderPanel();
  }));
  $('#assistant-use-origin')?.addEventListener('click',()=>{

@@ -84,10 +84,16 @@
     }
     candidates.sort((a, b) => b.end - b.start - (a.end - a.start) || a.start - b.start);
 
+    // Same span + phrase can match multiple places (e.g. shared "dorm" alias). Keep all of them.
     for (const c of candidates) {
       let overlap = false;
       for (let i = c.start; i < c.end; i++) if (occupied[i]) { overlap = true; break; }
-      if (overlap) continue;
+      if (overlap) {
+        const sameSpan = hits.some(h => h.start === c.start && h.end === c.end && h.phrase === c.phrase);
+        if (!sameSpan) continue;
+        hits.push(c);
+        continue;
+      }
       for (let i = c.start; i < c.end; i++) occupied[i] = true;
       hits.push(c);
     }
@@ -118,8 +124,10 @@
     const arrow = norm.match(/^(.+?)\s+(?:to|->|→)\s+(.+)$/);
     if (arrow) {
       const left = arrow[1].trim();
-      const verbLeft = /^(go|going|get( me)?|take( me)?|take me from.*|directions?|how( do| can)?( i)?( get| go)?)$/.test(left);
-      if (!verbLeft) {
+      const verbLeft = /^(go|going|get( me)?|take( me)?|take me from.*|directions?|how( do| can)?( i)?( get| go)?|i need|i want|please)$/.test(left);
+      const leftWords = left.split(' ').filter(Boolean);
+      const onlyStops = leftWords.length > 0 && leftWords.every(w => STOP.has(w));
+      if (!verbLeft && !onlyStops) {
         segments.push({ role: 'origin', text: left });
         segments.push({ role: 'destination', text: arrow[2].trim() });
         return segments;
@@ -146,6 +154,10 @@
     return { matched, unknownTokens, hits };
   }
 
+  function isGenericPhrase(phrase) {
+    return /^(the )?(dorm|dorms|residence|library|dining|food)$/.test(normalize(phrase));
+  }
+
   function placesForAmbiguousPhrase(phrase, places) {
     let p = normalize(phrase).replace(/^the\s+/, '');
     if (p === 'dorm' || p === 'dorms' || p === 'residence' || p === 'residence hall' || p === 'residence halls') {
@@ -159,6 +171,34 @@
     }
     const { hits } = findHits(phrase, places);
     return uniquePlaces(hits);
+  }
+
+  function resolvePlaceSlot(slot, segmentText, places) {
+    const amb = placesForAmbiguousPhrase(segmentText, places);
+    const m = matchSegment(segmentText, places);
+    if (m.unknownTokens.length && !m.matched.length) {
+      return { kind: 'unsupported', unknown: segmentText, matched: [] };
+    }
+    if (m.unknownTokens.length && m.matched.length) {
+      return { kind: 'unsupported', unknown: m.unknownTokens.join(' '), matched: m.matched };
+    }
+    if (isGenericPhrase(segmentText) && amb.length > 1) {
+      return { kind: 'clarify', options: amb, place: null };
+    }
+    if (m.matched.length > 1) {
+      return { kind: 'clarify', options: m.matched, place: null };
+    }
+    if (m.matched.length === 1) {
+      return { kind: 'resolved', options: [], place: m.matched[0] };
+    }
+    if (amb.length === 1) {
+      return { kind: 'resolved', options: [], place: amb[0] };
+    }
+    if (amb.length > 1) {
+      return { kind: 'clarify', options: amb, place: null };
+    }
+    // No place signal (e.g. verb leftover mistaken as an origin) — leave unresolved.
+    return { kind: 'unresolved', options: [], place: null, matched: [] };
   }
 
   function interpret(text, opts) {
@@ -200,87 +240,56 @@
       const clarify = [];
 
       if (originSeg) {
-        const amb = placesForAmbiguousPhrase(originSeg.text, places);
-        const m = matchSegment(originSeg.text, places);
-        if (m.unknownTokens.length && !m.matched.length) {
+        const resolved = resolvePlaceSlot('origin', originSeg.text, places);
+        if (resolved.kind === 'unsupported') {
           return {
             kind: 'unsupported',
-            message: `“${originSeg.text}” is not in this prototype’s campus places. I will not invent a starting point. Choose a supported place manually, or try Bidgood, the Ferg, or Gorgas.`,
-            unknown: originSeg.text,
-            placeIds: []
+            message: resolved.matched.length
+              ? `I recognized ${resolved.matched.map(p => p.name).join(', ')}, but “${resolved.unknown}” is not a supported campus place. I will not ignore or invent that location.`
+              : `“${originSeg.text}” is not in this prototype’s campus places. I will not invent a starting point. Choose a supported place manually, or try Bidgood, the Ferg, or Gorgas.`,
+            unknown: resolved.unknown,
+            placeIds: (resolved.matched || []).map(p => p.id)
           };
         }
-        if (m.unknownTokens.length && m.matched.length) {
-          return {
-            kind: 'unsupported',
-            message: `I recognized ${m.matched.map(p => p.name).join(', ')}, but “${m.unknownTokens.join(' ')}” is not a supported campus place. I will not ignore or invent that location.`,
-            unknown: m.unknownTokens.join(' '),
-            placeIds: m.matched.map(p => p.id)
-          };
-        }
-        if (amb.length > 1 && m.matched.length !== 1) {
-          clarify.push({ slot: 'origin', options: amb.length ? amb : m.matched, prompt: 'Which starting place did you mean?' });
-        } else if (m.matched.length > 1) {
-          clarify.push({ slot: 'origin', options: m.matched, prompt: 'Which starting place did you mean?' });
-        } else if (m.matched.length === 1) {
-          origin = m.matched[0];
-        } else if (amb.length === 1) {
-          origin = amb[0];
-        } else if (amb.length > 1) {
-          clarify.push({ slot: 'origin', options: amb, prompt: 'Which starting place did you mean?' });
+        if (resolved.kind === 'clarify') {
+          clarify.push({ slot: 'origin', options: resolved.options, prompt: 'Which starting place did you mean?' });
+        } else if (resolved.kind === 'resolved') {
+          origin = resolved.place;
         }
       }
 
       if (destSeg) {
-        const amb = placesForAmbiguousPhrase(destSeg.text, places);
-        const m = matchSegment(destSeg.text, places);
-        if (m.unknownTokens.length && !m.matched.length) {
+        const resolved = resolvePlaceSlot('destination', destSeg.text, places);
+        if (resolved.kind === 'unsupported' || resolved.kind === 'unresolved') {
           return {
             kind: 'unsupported',
-            message: `“${destSeg.text}” is not in this prototype’s campus places. I will not invent a destination. Use the manual destination field, or try a supported building like Bidgood or the Student Center.`,
-            unknown: destSeg.text,
-            placeIds: []
+            message: resolved.matched && resolved.matched.length
+              ? `I recognized ${resolved.matched.map(p => p.name).join(', ')}, but “${resolved.unknown || destSeg.text}” is not a supported campus place. I will not ignore or invent that location.`
+              : `“${destSeg.text}” is not in this prototype’s campus places. I will not invent a destination. Use the manual destination field, or try a supported building like Bidgood or the Student Center.`,
+            unknown: resolved.unknown || destSeg.text,
+            placeIds: (resolved.matched || []).map(p => p.id)
           };
         }
-        if (m.unknownTokens.length && m.matched.length) {
-          return {
-            kind: 'unsupported',
-            message: `I recognized ${m.matched.map(p => p.name).join(', ')}, but “${m.unknownTokens.join(' ')}” is not a supported campus place. I will not ignore or invent that location.`,
-            unknown: m.unknownTokens.join(' '),
-            placeIds: m.matched.map(p => p.id)
-          };
-        }
-        // Prefer ambiguous generic over single weak match when phrase is generic
-        const generic = /^(the )?(dorm|dorms|residence|library|dining|food)$/.test(normalize(destSeg.text));
-        if (generic && amb.length > 1) {
-          clarify.push({ slot: 'destination', options: amb, prompt: 'Which destination did you mean?' });
+        if (resolved.kind === 'clarify') {
+          clarify.push({ slot: 'destination', options: resolved.options, prompt: 'Which destination did you mean?' });
           destination = null;
-        } else if (m.matched.length > 1) {
-          clarify.push({ slot: 'destination', options: m.matched, prompt: 'Which destination did you mean?' });
-        } else if (m.matched.length === 1) {
-          destination = m.matched[0];
-        } else if (amb.length === 1) {
-          destination = amb[0];
-        } else if (amb.length > 1) {
-          clarify.push({ slot: 'destination', options: amb, prompt: 'Which destination did you mean?' });
-        } else {
-          return {
-            kind: 'unsupported',
-            message: `I could not match “${destSeg.text}” to a supported campus place. I will not invent one. Pick a destination from the manual list instead.`,
-            unknown: destSeg.text,
-            placeIds: []
-          };
+        } else if (resolved.kind === 'resolved') {
+          destination = resolved.place;
         }
       }
 
       if (clarify.length) {
+        const ids = new Set(clarify[0].options.map(p => p.id));
+        if (origin) ids.add(origin.id);
+        if (destination) ids.add(destination.id);
         return {
           kind: 'clarify',
           message: clarify[0].prompt + ' Choose one of the supported places below.',
           slot: clarify[0].slot,
           options: clarify[0].options,
+          remaining: clarify.slice(1),
           draft: { origin: origin ? origin.id : null, destination: destination ? destination.id : null },
-          placeIds: clarify[0].options.map(p => p.id)
+          placeIds: [...ids]
         };
       }
 
@@ -377,6 +386,15 @@
     if (result.origin && !allowed.has(result.origin.id)) throw new Error('Invented origin');
     if (result.destination && !allowed.has(result.destination.id)) throw new Error('Invented destination');
     if (result.options) for (const p of result.options) if (!allowed.has(p.id)) throw new Error('Invented option');
+    if (result.draft) {
+      if (result.draft.origin && !allowed.has(result.draft.origin)) throw new Error('Invented draft origin');
+      if (result.draft.destination && !allowed.has(result.draft.destination)) throw new Error('Invented draft destination');
+    }
+    if (result.remaining) {
+      for (const step of result.remaining) {
+        for (const p of step.options || []) if (!allowed.has(p.id)) throw new Error('Invented remaining option');
+      }
+    }
     return true;
   }
 
