@@ -17,9 +17,18 @@ const places = [
   { id: 'lakeside', name: 'Lakeside Dining', category: 'Dining · North campus', type: 'building', aliases: 'lakeside dining food' },
   { id: 'rec', name: 'Student Recreation Center', category: 'Recreation · East campus', type: 'building', aliases: 'rec recreation gym fitness' },
   { id: 'coleman', name: 'Coleman Coliseum', category: 'Athletics · South campus', type: 'building', aliases: 'coleman basketball gymnastics' },
-  { id: 'bryce', name: 'Bryce Campus', category: 'North-east campus', type: 'building', aliases: 'bryce performing arts' }
+  { id: 'bryce', name: 'Bryce Campus', category: 'North-east campus', type: 'building', aliases: 'bryce performing arts' },
+  { id: 'rodgers', name: 'Rodgers Library', category: 'Library · Science & Engineering', type: 'book', aliases: 'rodgers rogers science engineering library' },
+  { id: 'bruno', name: 'Bruno Business Library', category: 'Library · Culverhouse', type: 'book', aliases: 'bruno business library bashinsky' },
+  { id: 'fresh-food', name: 'Fresh Food Company', category: 'Dining · Engineering quad', type: 'building', aliases: 'fresh food company foods ffc' },
+  { id: 'alston', name: 'Alston Hall', category: 'Culverhouse College of Business', type: 'building', aliases: 'alston mary hewell' },
+  { id: 'student-services', name: 'Student Services Center', category: 'Student services', type: 'building', aliases: 'student services center ssc' },
+  { id: 'burke', name: 'Burke Hall', category: 'Residence hall', type: 'home', aliases: 'burke hall dorm residence' },
+  { id: 'foster', name: 'Foster Auditorium', category: 'Auditorium · South Quad', type: 'building', aliases: 'foster auditorium' },
+  { id: 'lloyd', name: 'Lloyd Hall', category: 'Academic · The Quad', type: 'building', aliases: 'lloyd hall' },
+  { id: 'lakeside-hall', name: 'Lakeside Hall', category: 'Residence hall · North campus', type: 'home', aliases: 'lakeside hall dorm residential residence' }
 ];
-assert.equal(places.length, 14);
+assert.equal(places.length, 23);
 
 const origin = places[0];
 function interpret(text) {
@@ -42,6 +51,55 @@ function interpret(text) {
   assert.equal(r.kind, 'confirm');
   assert.equal(r.origin.id, 'student-center');
   assert.equal(r.destination.id, 'gorgas');
+}
+
+// Batch 1 aliases
+{
+  const r = interpret('Rodgers to Bruno');
+  assert.equal(r.kind, 'confirm');
+  assert.equal(r.origin.id, 'rodgers');
+  assert.equal(r.destination.id, 'bruno');
+}
+{
+  const r = interpret('Fresh Food to Foster');
+  assert.equal(r.kind, 'confirm');
+  assert.equal(r.origin.id, 'fresh-food');
+  assert.equal(r.destination.id, 'foster');
+}
+{
+  const r = interpret('Lakeside Hall to Alston');
+  assert.equal(r.kind, 'confirm');
+  assert.equal(r.origin.id, 'lakeside-hall');
+  assert.equal(r.destination.id, 'alston');
+}
+
+// Bare "lakeside" must clarify Dining vs Hall — never silently pick
+{
+  const r = interpret('Go to lakeside');
+  assert.equal(r.kind, 'clarify');
+  assert.equal(r.slot, 'destination');
+  assert.ok(r.options.length >= 2);
+  const ids = r.options.map(p => p.id).sort();
+  assert.ok(ids.includes('lakeside'));
+  assert.ok(ids.includes('lakeside-hall'));
+  assert.ok(!r.destination, 'must not silently assign lakeside destination');
+}
+{
+  const r = interpret('From lakeside dining to Bidgood');
+  assert.equal(r.kind, 'confirm');
+  assert.equal(r.origin.id, 'lakeside');
+  assert.equal(r.destination.id, 'bidgood');
+}
+
+// Multi-library ambiguity
+{
+  const r = interpret('Go to the library');
+  assert.equal(r.kind, 'clarify');
+  assert.equal(r.slot, 'destination');
+  assert.ok(r.options.length >= 3);
+  assert.ok(r.options.every(p => /library/i.test(p.name + ' ' + p.category)));
+  const ids = new Set(r.options.map(p => p.id));
+  assert.ok(ids.has('gorgas') && ids.has('rodgers') && ids.has('bruno'));
 }
 
 // Ambiguous destination
@@ -239,7 +297,9 @@ vm.runInContext(
 );
 vm.runInContext(`
 assert.equal(typeof CampusAssistant.interpret, 'function');
-assert.equal(places.length, 14);
+assert.equal(places.length, 23);
+assert(places.find(p => p.id === 'lakeside-hall'));
+assert(places.find(p => p.id === 'rodgers'));
 const origin0 = state.origin;
 const dest0 = state.destination;
 const r = CampusAssistant.interpret('Presidential to Bidgood', { places, originSuggestion: state.origin });
@@ -264,6 +324,9 @@ console.log(JSON.stringify({
   examples: CampusAssistant.EXAMPLES.length,
   supportedOk: true,
   aliasOk: true,
+  batch1AliasOk: true,
+  lakesideClarifyOk: true,
+  libraryClarifyOk: true,
   ambiguousOk: true,
   ambiguousOriginOk: true,
   draftOriginRetainedOk: true,

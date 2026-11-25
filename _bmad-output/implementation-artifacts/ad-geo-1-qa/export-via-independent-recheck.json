@@ -1,0 +1,118 @@
+{
+  "verifiedAt": "2026-11-25T21:26:44.723Z",
+  "exportIntegrity": {
+    "untracked": true,
+    "note": "All six dist/_*-manual-export.json are untracked (??). mtimes 15:15:51 (5 files) and 15:19:06 (bryce); network.js edited later 15:22:03 — exports not rewritten by integration.",
+    "sha256": {
+      "coleman": "bfd993da44d6d5b1fce2a203b4e4e8a96c538f4c89dfe179238298a050ce492c",
+      "campus": "b57773e02e332b93dca67ad833adcd7a83a78828508763c036755296fe532034",
+      "north": "f8e0ae0c72d8625d55d9c966765ae3a15eb57e9e737f3d92356f9c6d69e5576b",
+      "west": "47ae438ed935a1e580d43852fb426765e92c9e3c8d4d182bcee495459caa2ff9",
+      "east": "e3a7668889026b8826b2587fe2876522399892d25313bf75b968e78730b20bdb",
+      "bryce": "cb7e6c0080f6d01d36791adf71354f86acfce80030d525968c0906a7f787fe84"
+    }
+  },
+  "sc_bidgood": {
+    "presentIn": [
+      "campus",
+      "north",
+      "west"
+    ],
+    "rawOrientationAll": "sc->bidgood",
+    "viaIdenticalAcrossExports": true,
+    "via": [
+      [
+        293.6,
+        341.3
+      ],
+      [
+        268.1,
+        345.9
+      ],
+      [
+        241.7,
+        351.7
+      ],
+      [
+        229.9,
+        354.5
+      ],
+      [
+        228.6,
+        370.5
+      ],
+      [
+        226.2,
+        383.6
+      ],
+      [
+        221.7,
+        402
+      ],
+      [
+        218.1,
+        421
+      ],
+      [
+        213.3,
+        443.1
+      ],
+      [
+        259.7,
+        419.4
+      ],
+      [
+        291.1,
+        422.5
+      ],
+      [
+        286.9,
+        448.5
+      ],
+      [
+        259.1,
+        443.1
+      ]
+    ],
+    "productionMatches": true
+  },
+  "bidgood_cap": {
+    "presentIn": [
+      "coleman",
+      "campus",
+      "north",
+      "west"
+    ],
+    "rawOrientationAll": "bidgood->cap",
+    "viaIdenticalAcrossExports": true,
+    "via": [
+      [
+        259.5,
+        444.6
+      ],
+      [
+        272.7,
+        445.4
+      ],
+      [
+        291.2,
+        448.2
+      ],
+      [
+        312.6,
+        449.7
+      ],
+      [
+        331.7,
+        453.1
+      ],
+      [
+        343,
+        454.1
+      ]
+    ],
+    "productionMatches": true
+  },
+  "likelySourceOfPerceivedConflict": "Earlier comparison may have contrasted West export vs then-current production (pre-integration), or vs a chat paste that was not these saved files. In the six saved dist/_*-manual-export.json files, no West-vs-Campus/North difference exists on either edge — even raw orientation and via JSON.stringify are identical.",
+  "noCoordinateChangesThisPass": true
+}

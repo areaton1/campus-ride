@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Campus Ride — Route Geometry Editor (temporary)</title>
+<style>
+  html,body{margin:0;height:100%;background:#111;color:#eee;font:13px/1.35 system-ui,sans-serif}
+  #bar,#editbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:8px 12px;background:#0a0a0a;border-bottom:1px solid #333;position:sticky;top:0;z-index:2}
+  #editbar{top:auto;border-top:1px solid #333;border-bottom:0;background:#121212}
+  label{display:flex;gap:5px;align-items:center;white-space:nowrap}
+  button,select{background:#222;color:#eee;border:1px solid #555;border-radius:6px;padding:5px 9px;cursor:pointer}
+  button.active{background:#1f6feb;border-color:#1f6feb;color:#fff}
+  button:disabled{opacity:.4;cursor:default}
+  #wrap{height:calc(100% - 96px)}
+  svg{width:100%;height:100%;background:#f5f6f2;touch-action:none;cursor:default}
+  body.tool-pan svg{cursor:grab}
+  body.tool-pan.panning svg{cursor:grabbing}
+  body.tool-edit svg{cursor:crosshair}
+  .hint{opacity:.7;font-size:12px;margin-left:auto;max-width:480px}
+  #status{font-variant-numeric:tabular-nums;opacity:.9}
+  #export{width:100%;min-height:140px;max-height:260px;background:#0d0d0d;color:#9fef9f;border:1px solid #333;border-radius:6px;padding:8px;font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;display:none}
+  #export.show{display:block}
+  #warn{display:none;padding:6px 12px;background:#3a2a00;color:#ffd666;border-bottom:1px solid #665500;font-size:12px}
+  #warn.show{display:block}
+  .pill{padding:2px 8px;border-radius:999px;background:#333;font-size:11px}
+  .pill.on{background:#245;color:#9cf}
+  .swatch{width:10px;height:10px;border-radius:2px;display:inline-block}
+</style>
+</head>
+<body class="tool-edit">
+<div id="bar">
+  <strong>Route editor</strong>
+  <span class="pill on" title="Basemap image + route points share SVG user space">coords = network.js</span>
+  <label>Route
+    <select id="route">
+      <option value="coleman" selected>Coleman Connector</option>
+      <option value="campus">Campus Loop</option>
+      <option value="north">North Connector</option>
+      <option value="west">West</option>
+      <option value="east">East</option>
+      <option value="bryce">Bryce</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="streets" checked> road boundaries</label>
+  <label><input type="checkbox" id="ghost" checked> production ghost</label>
+  <label><input type="checkbox" id="showNodes" checked> nodes</label>
+  <label><input type="checkbox" id="unlockShared"> unlock shared / stops</label>
+  <button type="button" id="zin">Zoom+</button>
+  <button type="button" id="zout">Zoom−</button>
+  <button type="button" id="frame">Frame route</button>
+  <span class="hint">Temp editor · does not write network.js until you export + approve</span>
+</div>
+<div id="warn"></div>
+<div id="editbar">
+  <button type="button" id="toolEdit" class="active">Edit</button>
+  <button type="button" id="toolPan">Pan (Space)</button>
+  <button type="button" id="undo" title="Cmd/Ctrl+Z">Undo</button>
+  <button type="button" id="redo" title="Cmd/Ctrl+Shift+Z">Redo</button>
+  <button type="button" id="del" title="Backspace / Delete">Delete point</button>
+  <button type="button" id="resetRoute" title="Reload this route from production network.js">Reset route</button>
+  <button type="button" id="exportBtn">Export geometry</button>
+  <button type="button" id="copyBtn">Copy JSON</button>
+  <span id="status">ready</span>
+</div>
+<textarea id="export" readonly spellcheck="false" aria-label="Exported route geometry"></textarea>
+<div id="wrap">
+<svg id="map" viewBox="180 400 380 460" xmlns="http://www.w3.org/2000/svg">
+  <image href="campus-map.svg" x="0" y="0" width="1080" height="1341.28"/>
+  <g id="g-streets"></g>
+  <g id="g-ghost"></g>
+  <g id="g-route"></g>
+  <g id="g-handles"></g>
+  <g id="g-marks"></g>
+</svg>
+</div>
+<script src="network.js"></script>
+<script src="_geo-debug-streets.js"></script>
+<script>
+/*
+ * Coordinate contract (same as production app):
+ * - campus-map.svg viewBox 0 0 1080 1341.28
+ * - <image> at 0,0 1080×1341.28 → 1:1 SVG user units
+ * - CampusNetwork nodes/vias use those units
+ * - Pan/zoom = viewBox only; clientToSvg maps clicks correctly at any zoom
+ */
+const MAP_W=1080, MAP_H=1341.28;
+const ROUTES={
+  campus:{name:'Campus Loop',color:'#9a3324',pattern:['pv','north','lake','paty','sc','bidgood','cap','capH','hub','eng','hackN','riverE','pv']},
+  north:{name:'North Connector',color:'#1f4e79',pattern:['pv','riverE','hackN','eng','hub','capH','cap','bidgood','sc','paty','lake','north','pv']},
+  west:{name:'West',color:'#2d6a4f',pattern:['sc','west','westCap','bidgood','quadW','tut','bryantH','uniH','quadE','cap','bidgood','sc']},
+  east:{name:'East',color:'#b8860b',pattern:['hub','eastHub','recN','rec','recS','uniE','uniH','capH','hub']},
+  bryce:{name:'Bryce',color:'#6b3fa0',pattern:['hub','eng','hackN','bryceS','bryceN','bryceE','recN','eastHub','hub']},
+  coleman:{name:'Coleman Connector',color:'#ad344a',pattern:['cap','capH','uniH','bryantH','colW','colE','colN','second','bryantH','tut','quadW','bidgood','cap']}
+};
+const STOP_KEYS=new Set(['pv','lake','paty','sc','west','bidgood','cap','hub','eng','recN','rec','uniE','bryceS','bryceN','bryceE','tut','colE','bryantH','quadW']);
+
+const map=document.getElementById('map');
+const round1=n=>Math.round(n*10)/10;
+const clone=o=>JSON.parse(JSON.stringify(o));
+const pathD=pts=>pts.map((p,i)=>(i?'L':'M')+p[0]+','+p[1]).join(' ');
+const edgeKey=(a,b)=>a+'|'+b;
+
+function snapshotFromNetwork(){
+  const nodes=clone(CampusNetwork.nodes);
+  const edges=CampusNetwork.edges.map(e=>{
+    const via=e.points.slice(1,-1).map(p=>[round1(p[0]),round1(p[1])]);
+    return {a:e.a,b:e.b,name:e.name,via};
+  });
+  return {nodes,edges};
+}
+
+const production=snapshotFromNetwork();
+let draft=clone(production);
+let history=[], future=[];
+let routeId='coleman';
+let selected=null; // {kind:'via'|'node', ...}
+let tool='edit';
+let spacePan=false;
+let panning=false;
+let dragging=false;
+let panLast=null;
+let dragDirty=false;
+let warnTimer=null;
+
+let view={x:180,y:400,w:380,h:460};
+const setView=()=>map.setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`);
+
+function clientToSvg(clientX, clientY){
+  const rect=map.getBoundingClientRect();
+  const x=view.x + (clientX-rect.left)/rect.width*view.w;
+  const y=view.y + (clientY-rect.top)/rect.height*view.h;
+  return [round1(x), round1(y)];
+}
+
+function findEdge(a,b){
+  return draft.edges.find(e=>(e.a===a&&e.b===b)||(e.a===b&&e.b===a));
+}
+function edgePoints(e){
+  const forward=true;
+  const na=draft.nodes[e.a], nb=draft.nodes[e.b];
+  return [na, ...e.via, nb];
+}
+function orientedPoints(a,b){
+  const e=findEdge(a,b);
+  if(!e) return null;
+  const pts=edgePoints(e);
+  return e.a===a?pts:[...pts].reverse();
+}
+function joinPattern(pattern, geo){
+  const nodes=geo.nodes;
+  const edges=geo.edges;
+  const find=(a,b)=>edges.find(e=>(e.a===a&&e.b===b)||(e.a===b&&e.b===a));
+  let points=[], junctions=[];
+  for(let i=0;i<pattern.length-1;i++){
+    const a=pattern[i], b=pattern[i+1];
+    const e=find(a,b);
+    if(!e) throw Error('Missing edge '+a+' '+b);
+    const raw=[nodes[e.a], ...e.via, nodes[e.b]];
+    const p=e.a===a?raw:[...raw].reverse();
+    junctions.push(points.length?points.length-1:0);
+    points.push(...(i?p.slice(1):p));
+  }
+  return {points,junctions};
+}
+function routeEdgeSet(id){
+  const pat=ROUTES[id].pattern;
+  const keys=new Set();
+  for(let i=0;i<pat.length-1;i++){
+    keys.add(edgeKey(pat[i],pat[i+1]));
+    keys.add(edgeKey(pat[i+1],pat[i]));
+  }
+  return keys;
+}
+function routesUsingNode(nodeId){
+  return Object.entries(ROUTES).filter(([,r])=>r.pattern.includes(nodeId)).map(([id])=>id);
+}
+function routesUsingEdge(a,b){
+  const k1=edgeKey(a,b), k2=edgeKey(b,a);
+  return Object.entries(ROUTES).filter(([,r])=>{
+    for(let i=0;i<r.pattern.length-1;i++){
+      const k=edgeKey(r.pattern[i],r.pattern[i+1]);
+      if(k===k1||k===k2) return true;
+    }
+    return false;
+  }).map(([id])=>id);
+}
+function isSharedNode(nodeId){
+  const routes=routesUsingNode(nodeId);
+  if(routes.length>1) return true;
+  // node endpoint on edges outside current route
+  const keys=routeEdgeSet(routeId);
+  return draft.edges.some(e=>{
+    if(e.a!==nodeId && e.b!==nodeId) return false;
+    return !keys.has(edgeKey(e.a,e.b));
+  });
+}
+function isProtectedNode(nodeId){
+  if(document.getElementById('unlockShared').checked) return false;
+  return isSharedNode(nodeId) || STOP_KEYS.has(nodeId);
+}
+
+/** Flat editable handles for current route */
+function buildHandles(){
+  const pat=ROUTES[routeId].pattern;
+  const handles=[];
+  const seenNodes=new Set();
+  for(let i=0;i<pat.length-1;i++){
+    const a=pat[i], b=pat[i+1];
+    const e=findEdge(a,b);
+    if(!e) continue;
+    const forward=e.a===a;
+    if(!seenNodes.has(a)){
+      seenNodes.add(a);
+      const p=draft.nodes[a];
+      handles.push({kind:'node', id:a, x:p[0], y:p[1], protected:isProtectedNode(a), shared:isSharedNode(a), stop:STOP_KEYS.has(a)});
+    }
+    const vias=forward?e.via:[...e.via].reverse();
+    vias.forEach((v,vi)=>{
+      const viaIndex=forward?vi:(e.via.length-1-vi);
+      handles.push({kind:'via', a:e.a, b:e.b, viaIndex, x:v[0], y:v[1], protected:false, shared:routesUsingEdge(e.a,e.b).length>1});
+    });
+  }
+  // closing / last node if not already
+  const last=pat[pat.length-1];
+  if(last && !seenNodes.has(last)){
+    const p=draft.nodes[last];
+    handles.push({kind:'node', id:last, x:p[0], y:p[1], protected:isProtectedNode(last), shared:isSharedNode(last), stop:STOP_KEYS.has(last)});
+  }
+  return handles;
+}
+
+function routePolyline(){
+  return joinPattern(ROUTES[routeId].pattern, draft).points;
+}
+function productionPolyline(){
+  return joinPattern(ROUTES[routeId].pattern, production).points;
+}
+
+function hitTol(){
+  const rect=map.getBoundingClientRect();
+  return 10/rect.width*view.w;
+}
+function hitHandle(x,y){
+  const tol=hitTol();
+  const handles=buildHandles();
+  let best=null, bestD=tol;
+  for(const h of handles){
+    const d=Math.hypot(h.x-x,h.y-y);
+    if(d<=bestD){ bestD=d; best=h; }
+  }
+  return best;
+}
+function hitSegment(x,y){
+  const pts=routePolyline();
+  const tol=hitTol()*1.4;
+  let best=null, bestD=tol;
+  // Map each consecutive pair back to edge via indices
+  const pat=ROUTES[routeId].pattern;
+  let cursor=0;
+  for(let seg=0;seg<pat.length-1;seg++){
+    const a=pat[seg], b=pat[seg+1];
+    const e=findEdge(a,b);
+    if(!e) continue;
+    const forward=e.a===a;
+    const chunk=orientedPoints(a,b);
+    const start=cursor;
+    for(let i=0;i<chunk.length-1;i++){
+      const p0=chunk[i], p1=chunk[i+1];
+      const dx=p1[0]-p0[0], dy=p1[1]-p0[1];
+      const len2=dx*dx+dy*dy || 1;
+      let t=((x-p0[0])*dx+(y-p0[1])*dy)/len2;
+      t=Math.max(0,Math.min(1,t));
+      const px=p0[0]+t*dx, py=p0[1]+t*dy;
+      const d=Math.hypot(x-px,y-py);
+      if(d<bestD && t>0.05 && t<0.95){
+        // via insert index in edge's via array (after node a side)
+        // chunk indices: 0=node a, 1..n=vias, n+1=node b
+        let viaIndex;
+        if(forward){
+          // insert after chunk index i → via index = i (since via 0 is chunk[1])
+          viaIndex=i; // insert at viaIndex in forward via array
+        } else {
+          // reversed chunk: chunk[0]=b, chunk[last]=a
+          // forward via index from end
+          viaIndex=e.via.length-i;
+        }
+        bestD=d;
+        best={a:e.a,b:e.b,viaIndex,x:round1(px),y:round1(py),t,d};
+      }
+    }
+    cursor+=chunk.length-(seg?1:0);
+  }
+  return best;
+}
+
+function pushHistory(){
+  history.push(clone(draft));
+  if(history.length>80) history.shift();
+  future=[];
+  updateButtons();
+}
+function undo(){
+  if(!history.length) return;
+  future.push(clone(draft));
+  draft=history.pop();
+  selected=null;
+  draw();
+  updateButtons();
+}
+function redo(){
+  if(!future.length) return;
+  history.push(clone(draft));
+  draft=future.pop();
+  selected=null;
+  draw();
+  updateButtons();
+}
+function updateButtons(){
+  document.getElementById('undo').disabled=!history.length;
+  document.getElementById('redo').disabled=!future.length;
+  document.getElementById('del').disabled=!selected || selected.kind!=='via';
+}
+
+function showWarn(msg){
+  const el=document.getElementById('warn');
+  el.textContent=msg;
+  el.classList.add('show');
+  clearTimeout(warnTimer);
+  warnTimer=setTimeout(()=>el.classList.remove('show'), 5000);
+}
+
+function setTool(next){
+  tool=next;
+  document.getElementById('toolEdit').classList.toggle('active', tool==='edit' && !spacePan);
+  document.getElementById('toolPan').classList.toggle('active', tool==='pan' || spacePan);
+  document.body.classList.toggle('tool-pan', tool==='pan' || spacePan);
+  document.body.classList.toggle('tool-edit', tool==='edit' && !spacePan);
+}
+
+function frameRoute(){
+  const pts=routePolyline();
+  if(!pts.length) return;
+  const xs=pts.map(p=>p[0]), ys=pts.map(p=>p[1]);
+  const pad=36;
+  const x1=Math.min(...xs)-pad, y1=Math.min(...ys)-pad, x2=Math.max(...xs)+pad, y2=Math.max(...ys)+pad;
+  let w=x2-x1, h=y2-y1;
+  const aspect=map.getBoundingClientRect().width/Math.max(1,map.getBoundingClientRect().height);
+  if(w/h<aspect) w=h*aspect; else h=w/aspect;
+  view={x:(x1+x2)/2-w/2,y:(y1+y2)/2-h/2,w,h};
+  setView();
+}
+
+function drawStreets(){
+  const g=document.getElementById('g-streets');
+  g.innerHTML='';
+  if(!document.getElementById('streets').checked) return;
+  if(typeof STREET_SEGS==='undefined' || !STREET_SEGS.length) return;
+  // Filter to viewport + padding for speed
+  const pad=40;
+  const x0=view.x-pad, y0=view.y-pad, x1=view.x+view.w+pad, y1=view.y+view.h+pad;
+  let d='';
+  for(const s of STREET_SEGS){
+    const ax=s[0],ay=s[1],bx=s[2],by=s[3];
+    if((ax<x0&&bx<x0)||(ax>x1&&bx>x1)||(ay<y0&&by<y0)||(ay>y1&&by>y1)) continue;
+    d+=`M${ax},${ay}L${bx},${by}`;
+  }
+  if(!d) return;
+  const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+  p.setAttribute('d',d);
+  p.setAttribute('fill','none');
+  p.setAttribute('stroke','#9aa39a');
+  p.setAttribute('stroke-width','0.85');
+  p.setAttribute('opacity','0.75');
+  p.setAttribute('pointer-events','none');
+  g.appendChild(p);
+}
+
+function draw(){
+  drawStreets();
+  const ghost=document.getElementById('g-ghost');
+  const routeG=document.getElementById('g-route');
+  const handlesG=document.getElementById('g-handles');
+  const marks=document.getElementById('g-marks');
+  ghost.innerHTML=routeG.innerHTML=handlesG.innerHTML=marks.innerHTML='';
+
+  const color=ROUTES[routeId].color;
+  if(document.getElementById('ghost').checked){
+    const gp=productionPolyline();
+    if(gp.length){
+      const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+      p.setAttribute('d',pathD(gp));
+      p.setAttribute('fill','none');
+      p.setAttribute('stroke','#c0392b');
+      p.setAttribute('stroke-width','1.15');
+      p.setAttribute('stroke-dasharray','4 3');
+      p.setAttribute('opacity','0.5');
+      p.setAttribute('pointer-events','none');
+      ghost.appendChild(p);
+    }
+  }
+
+  const pts=routePolyline();
+  if(pts.length>=2){
+    // wide hit target (invisible)
+    const hit=document.createElementNS('http://www.w3.org/2000/svg','path');
+    hit.setAttribute('d',pathD(pts));
+    hit.setAttribute('fill','none');
+    hit.setAttribute('stroke','transparent');
+    hit.setAttribute('stroke-width','8');
+    hit.setAttribute('stroke-linecap','round');
+    hit.setAttribute('stroke-linejoin','round');
+    hit.dataset.role='seghit';
+    routeG.appendChild(hit);
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d',pathD(pts));
+    p.setAttribute('fill','none');
+    p.setAttribute('stroke',color);
+    p.setAttribute('stroke-width','1.35');
+    p.setAttribute('stroke-linecap','round');
+    p.setAttribute('stroke-linejoin','round');
+    p.setAttribute('opacity','0.95');
+    p.setAttribute('pointer-events','none');
+    routeG.appendChild(p);
+  }
+
+  const handles=buildHandles();
+  handles.forEach((h,i)=>{
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',h.x); c.setAttribute('cy',h.y);
+    const isSel=selected && (
+      (selected.kind==='node' && h.kind==='node' && selected.id===h.id) ||
+      (selected.kind==='via' && h.kind==='via' && selected.a===h.a && selected.b===h.b && selected.viaIndex===h.viaIndex)
+    );
+    c.setAttribute('r', isSel?3.8:(h.kind==='node'?3.2:2.5));
+    if(h.kind==='node'){
+      c.setAttribute('fill', h.protected?'#555':'#111');
+      c.setAttribute('stroke', h.stop?'#f5d76e':(h.shared?'#ff8c42':'#fff'));
+    } else {
+      c.setAttribute('fill', isSel?'#1f6feb':'#111');
+      c.setAttribute('stroke', h.shared?'#ff8c42':color);
+    }
+    c.setAttribute('stroke-width','1.4');
+    c.style.cursor=h.protected?'not-allowed':'move';
+    c.dataset.hi=String(i);
+    handlesG.appendChild(c);
+  });
+
+  if(document.getElementById('showNodes').checked){
+    for(const h of handles){
+      if(h.kind!=='node') continue;
+      const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x',h.x+5); t.setAttribute('y',h.y-5);
+      t.setAttribute('font-size','8');
+      t.setAttribute('fill','#222');
+      t.setAttribute('stroke','#fff');
+      t.setAttribute('stroke-width','2.5');
+      t.setAttribute('paint-order','stroke');
+      t.setAttribute('pointer-events','none');
+      t.textContent=h.id+(h.protected?' 🔒':'');
+      marks.appendChild(t);
+    }
+  }
+
+  updateStatus();
+  updateButtons();
+}
+
+function updateStatus(cursor){
+  const el=document.getElementById('status');
+  const n=buildHandles().filter(h=>h.kind==='via').length;
+  const nodes=buildHandles().filter(h=>h.kind==='node').length;
+  let sel='';
+  if(selected){
+    if(selected.kind==='node') sel=` · sel node ${selected.id}`;
+    else sel=` · sel via ${selected.a}|${selected.b}[${selected.viaIndex}]`;
+  }
+  const cur=cursor?` · [${cursor[0]}, ${cursor[1]}]`:'';
+  el.textContent=`${ROUTES[routeId].name} · ${nodes} nodes · ${n} vias${sel}${cur}`;
+}
+
+function sameSel(a,b){
+  if(!a||!b||a.kind!==b.kind) return false;
+  if(a.kind==='node') return a.id===b.id;
+  return a.a===b.a && a.b===b.b && a.viaIndex===b.viaIndex;
+}
+
+function moveSelected(x,y){
+  if(!selected) return false;
+  if(selected.kind==='node'){
+    if(isProtectedNode(selected.id)){
+      const others=routesUsingNode(selected.id).filter(id=>id!==routeId);
+      showWarn(`Node "${selected.id}" is protected`+(others.length?` (also used by: ${others.join(', ')})`:' (stop anchor)')+`. Enable “unlock shared / stops” to move it.`);
+      return false;
+    }
+    draft.nodes[selected.id]=[x,y];
+    return true;
+  }
+  const e=findEdge(selected.a,selected.b);
+  if(!e || selected.viaIndex<0 || selected.viaIndex>=e.via.length) return false;
+  if(selected.shared && !document.getElementById('unlockShared').checked){
+    const others=routesUsingEdge(selected.a,selected.b).filter(id=>id!==routeId);
+    if(others.length){
+      showWarn(`Via on shared edge ${selected.a}|${selected.b} also used by: ${others.join(', ')}. Enable unlock to edit.`);
+      return false;
+    }
+  }
+  e.via[selected.viaIndex]=[x,y];
+  return true;
+}
+
+function insertViaAt(seg){
+  const e=findEdge(seg.a,seg.b);
+  if(!e) return;
+  const others=routesUsingEdge(seg.a,seg.b).filter(id=>id!==routeId);
+  if(others.length && !document.getElementById('unlockShared').checked){
+    showWarn(`Edge ${seg.a}|${seg.b} is shared with ${others.join(', ')}. Enable unlock to insert points.`);
+    return;
+  }
+  pushHistory();
+  const idx=Math.max(0,Math.min(e.via.length, seg.viaIndex));
+  e.via.splice(idx,0,[seg.x,seg.y]);
+  selected={kind:'via',a:e.a,b:e.b,viaIndex:idx,shared:others.length>0};
+  draw();
+}
+
+function deleteSelected(){
+  if(!selected || selected.kind!=='via') return;
+  const e=findEdge(selected.a,selected.b);
+  if(!e) return;
+  const others=routesUsingEdge(selected.a,selected.b).filter(id=>id!==routeId);
+  if(others.length && !document.getElementById('unlockShared').checked){
+    showWarn(`Shared edge ${selected.a}|${selected.b} also used by: ${others.join(', ')}. Unlock to delete.`);
+    return;
+  }
+  pushHistory();
+  e.via.splice(selected.viaIndex,1);
+  selected=null;
+  draw();
+}
+
+function resetCurrentRoute(){
+  if(!confirm(`Reset ${ROUTES[routeId].name} edges/nodes to production network.js? Other routes’ draft edits on non-overlapping geometry are kept.`)) return;
+  pushHistory();
+  const keys=routeEdgeSet(routeId);
+  const pat=ROUTES[routeId].pattern;
+  // restore edges used by this route
+  for(const pe of production.edges){
+    if(!keys.has(edgeKey(pe.a,pe.b))) continue;
+    const de=findEdge(pe.a,pe.b);
+    if(de){ de.via=clone(pe.via); de.name=pe.name; }
+  }
+  // restore nodes on this pattern
+  for(const id of new Set(pat)){
+    draft.nodes[id]=clone(production.nodes[id]);
+  }
+  selected=null;
+  draw();
+}
+
+function exportPayload(){
+  const pat=ROUTES[routeId].pattern;
+  const keys=routeEdgeSet(routeId);
+  const edges=[];
+  for(const e of draft.edges){
+    if(!keys.has(edgeKey(e.a,e.b))) continue;
+    edges.push({
+      a:e.a,b:e.b,name:e.name,
+      via:e.via.map(p=>[round1(p[0]),round1(p[1])]),
+      points:[draft.nodes[e.a],...e.via,draft.nodes[e.b]].map(p=>[round1(p[0]),round1(p[1])])
+    });
+  }
+  const nodeIds=[...new Set(pat)];
+  const nodes={};
+  for(const id of nodeIds) nodes[id]=[round1(draft.nodes[id][0]),round1(draft.nodes[id][1])];
+  const joined=joinPattern(pat, draft).points.map(p=>[round1(p[0]),round1(p[1])]);
+  const snippetLines=edges.map(e=>{
+    const via=JSON.stringify(e.via);
+    return `  edge('${e.a}','${e.b}',${via},'${e.name}');`;
+  });
+  const nodeLines=nodeIds.map(id=>`    ${id}:[${nodes[id]}],`).join('\n');
+  return {
+    id:routeId,
+    name:ROUTES[routeId].name,
+    color:ROUTES[routeId].color,
+    coordSpace:{
+      units:'SVG user units = network.js',
+      image:{x:0,y:0,width:MAP_W,height:MAP_H},
+      basemap:'campus-map.svg',
+      transform:'none (1:1 with <image>)',
+      verified:true
+    },
+    pattern:pat,
+    nodes,
+    edges,
+    points:joined,
+    pointCount:joined.length,
+    note:'Manual route editor export. No auto-smoothing. Do NOT apply to network.js until visually approved. Moving buses use CampusNetwork.apply → join(pattern) from these edges.',
+    networkJsSnippet:`/* ${ROUTES[routeId].name} — paste after approval; do not auto-apply */\n/* nodes (subset):\n${nodeLines}\n*/\n${snippetLines.join('\n')}`
+  };
+}
+
+function showExport(){
+  const ta=document.getElementById('export');
+  ta.value=JSON.stringify(exportPayload(),null,2);
+  ta.classList.add('show');
+}
+
+/* —— UI wiring —— */
+['streets','ghost','showNodes','unlockShared'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', draw);
+});
+document.getElementById('route').addEventListener('change', e=>{
+  routeId=e.target.value;
+  selected=null;
+  frameRoute();
+  draw();
+});
+document.getElementById('zin').onclick=()=>{view.w*=0.8;view.h*=0.8;setView();drawStreets();};
+document.getElementById('zout').onclick=()=>{view.w*=1.25;view.h*=1.25;setView();drawStreets();};
+document.getElementById('frame').onclick=()=>{frameRoute();draw();};
+document.getElementById('toolEdit').onclick=()=>setTool('edit');
+document.getElementById('toolPan').onclick=()=>setTool('pan');
+document.getElementById('undo').onclick=undo;
+document.getElementById('redo').onclick=redo;
+document.getElementById('del').onclick=deleteSelected;
+document.getElementById('resetRoute').onclick=resetCurrentRoute;
+document.getElementById('exportBtn').onclick=showExport;
+document.getElementById('copyBtn').onclick=async ()=>{
+  const text=JSON.stringify(exportPayload(),null,2);
+  document.getElementById('export').value=text;
+  document.getElementById('export').classList.add('show');
+  try{ await navigator.clipboard.writeText(text); document.getElementById('status').textContent='copied export JSON'; }
+  catch{ document.getElementById('status').textContent='copy failed — use Export box'; }
+};
+
+window.addEventListener('keydown', e=>{
+  if(e.code==='Space' && !e.repeat){ spacePan=true; setTool(tool); e.preventDefault(); }
+  if((e.key==='Backspace'||e.key==='Delete') && selected){
+    e.preventDefault(); deleteSelected();
+  }
+  if(e.key==='z' && (e.metaKey||e.ctrlKey)){
+    e.preventDefault();
+    if(e.shiftKey) redo(); else undo();
+  }
+  if(e.key==='y' && (e.metaKey||e.ctrlKey)){ e.preventDefault(); redo(); }
+});
+window.addEventListener('keyup', e=>{
+  if(e.code==='Space'){ spacePan=false; setTool(tool); }
+});
+
+map.addEventListener('pointerdown', e=>{
+  const [x,y]=clientToSvg(e.clientX,e.clientY);
+  const wantPan=tool==='pan'||spacePan||e.button===1||e.altKey;
+  if(wantPan){
+    panning=true;
+    document.body.classList.add('panning');
+    panLast=[e.clientX,e.clientY];
+    map.setPointerCapture(e.pointerId);
+    return;
+  }
+  if(tool!=='edit') return;
+
+  const h=hitHandle(x,y);
+  if(h){
+    if(h.kind==='node' && isProtectedNode(h.id)){
+      selected=h;
+      const others=routesUsingNode(h.id).filter(id=>id!==routeId);
+      showWarn(`Protected node "${h.id}"`+(others.length?` · shared with ${others.join(', ')}`:(STOP_KEYS.has(h.id)?' · stop anchor':''))+`. Unlock to move.`);
+      draw();
+      return;
+    }
+    selected=h;
+    dragging=true;
+    dragDirty=false;
+    map.setPointerCapture(e.pointerId);
+    draw();
+    return;
+  }
+
+  // click on segment → insert control point
+  const seg=hitSegment(x,y);
+  if(seg){
+    insertViaAt(seg);
+    dragging=true; // allow immediate nudge of new point
+    dragDirty=false;
+    map.setPointerCapture(e.pointerId);
+    return;
+  }
+});
+
+map.addEventListener('pointermove', e=>{
+  const [x,y]=clientToSvg(e.clientX,e.clientY);
+  updateStatus([x,y]);
+  if(panning && panLast){
+    const rect=map.getBoundingClientRect();
+    const dx=(e.clientX-panLast[0])/rect.width*view.w;
+    const dy=(e.clientY-panLast[1])/rect.height*view.h;
+    view.x-=dx; view.y-=dy; panLast=[e.clientX,e.clientY]; setView();
+    drawStreets();
+    return;
+  }
+  if(dragging && selected){
+    if(!dragDirty){
+      // snapshot once before first successful move
+      const before=clone(draft);
+      if(moveSelected(x,y)){
+        history.push(before);
+        if(history.length>80) history.shift();
+        future=[];
+        dragDirty=true;
+        draw();
+        updateButtons();
+      }
+    } else if(moveSelected(x,y)){
+      draw();
+    }
+  }
+});
+
+map.addEventListener('pointerup', ()=>{
+  panning=false; dragging=false; dragDirty=false;
+  document.body.classList.remove('panning');
+  panLast=null;
+});
+map.addEventListener('pointercancel', ()=>{
+  panning=false; dragging=false; dragDirty=false; panLast=null;
+  document.body.classList.remove('panning');
+});
+
+map.addEventListener('dblclick', e=>{
+  if(tool!=='edit') return;
+  e.preventDefault();
+  const [x,y]=clientToSvg(e.clientX,e.clientY);
+  const h=hitHandle(x,y);
+  if(h && h.kind==='via'){
+    selected=h;
+    deleteSelected();
+    return;
+  }
+  const seg=hitSegment(x,y);
+  if(seg) insertViaAt(seg);
+});
+
+map.addEventListener('contextmenu', e=>{
+  if(tool!=='edit') return;
+  e.preventDefault();
+  const [x,y]=clientToSvg(e.clientX,e.clientY);
+  const h=hitHandle(x,y);
+  if(h && h.kind==='via'){ selected=h; deleteSelected(); }
+});
+
+map.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const f=e.deltaY>0?1.12:0.9;
+  const rect=map.getBoundingClientRect();
+  const mx=view.x+(e.clientX-rect.left)/rect.width*view.w;
+  const my=view.y+(e.clientY-rect.top)/rect.height*view.h;
+  view.w*=f; view.h*=f;
+  view.x=mx-(e.clientX-rect.left)/rect.width*view.w;
+  view.y=my-(e.clientY-rect.top)/rect.height*view.h;
+  setView();
+  drawStreets();
+},{passive:false});
+
+// Boot — Coleman, production geometry, frame route
+setTool('edit');
+frameRoute();
+draw();
+</script>
+</body>
+</html>

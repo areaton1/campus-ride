@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>East route alignment proof (temporary)</title>
+<style>
+  html,body{margin:0;height:100%;background:#111;color:#eee;font:13px/1.35 system-ui,sans-serif}
+  #bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:8px 12px;background:#0a0a0a;border-bottom:1px solid #333;position:sticky;top:0;z-index:2}
+  label{display:flex;gap:5px;align-items:center;white-space:nowrap}
+  button,select{background:#222;color:#eee;border:1px solid #555;border-radius:6px;padding:5px 9px}
+  #wrap{height:calc(100% - 48px)}
+  svg{width:100%;height:100%;background:#f5f6f2;touch-action:none}
+  .hint{opacity:.65;margin-left:auto;max-width:420px}
+</style>
+</head>
+<body>
+<div id="bar">
+  <strong>East route proof</strong>
+  <label><input type="checkbox" id="streets" checked> streets</label>
+  <label><input type="checkbox" id="before" checked> before (red)</label>
+  <label><input type="checkbox" id="after" checked> after (blue)</label>
+  <label><input type="checkbox" id="nodes" checked> nodes</label>
+  <label><input type="checkbox" id="vias" checked> vias</label>
+  <label><input type="checkbox" id="stops" checked> stops</label>
+  <label>Focus
+    <select id="focus">
+      <option value="all">full East loop</option>
+      <option value="hub|eastHub">hub → eastHub</option>
+      <option value="eastHub|recN">eastHub → recN</option>
+      <option value="recN|rec">recN → rec</option>
+      <option value="rec|recS">rec → recS</option>
+      <option value="recS|uniE">recS → uniE</option>
+      <option value="uniH|uniE">uniH ↔ uniE</option>
+      <option value="capH|uniH">capH ↔ uniH</option>
+      <option value="capH|hub">capH ↔ hub</option>
+    </select>
+  </label>
+  <button type="button" id="zin">Zoom+</button>
+  <button type="button" id="zout">Zoom−</button>
+  <button type="button" id="reset">Reset</button>
+  <span class="hint">Thin lines · streets visible · East only · not shipped</span>
+</div>
+<div id="wrap">
+<svg id="map" viewBox="380 340 480 360">
+  <image href="campus-map.svg" x="0" y="0" width="1080" height="1341.28"/>
+  <g id="g-streets"></g>
+  <g id="g-before"></g>
+  <g id="g-after"></g>
+  <g id="g-marks"></g>
+</svg>
+</div>
+<script src="_east-debug-data.js"></script>
+<script>
+const map=document.getElementById('map');
+let view={x:380,y:340,w:480,h:360};
+const setView=()=>map.setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`);
+const pathD=pts=>pts.map((p,i)=>(i?'L':'M')+p[0]+','+p[1]).join(' ');
+const stopNames={hub:'Transit Hub',recN:'Recreation North',rec:'Recreation Center',uniE:'East Campus'};
+
+function boundsFor(key){
+  const geo=EAST_GEO.after;
+  let pts=[];
+  if(key==='all'){
+    for(const e of Object.values(geo)) pts.push(...e.points);
+  } else {
+    const e=geo[key]||Object.values(geo).find(x=>`${x.b}|${x.a}`===key);
+    if(e) pts=e.points;
+  }
+  if(!pts.length) return;
+  const xs=pts.map(p=>p[0]), ys=pts.map(p=>p[1]);
+  const pad=40;
+  const x1=Math.min(...xs)-pad, y1=Math.min(...ys)-pad, x2=Math.max(...xs)+pad, y2=Math.max(...ys)+pad;
+  let w=x2-x1, h=y2-y1;
+  const aspect=map.getBoundingClientRect().width/Math.max(1,map.getBoundingClientRect().height);
+  if(w/h<aspect) w=h*aspect; else h=w/aspect;
+  view={x:(x1+x2)/2-w/2,y:(y1+y2)/2-h/2,w,h}; setView();
+}
+
+function draw(){
+  const streets=document.getElementById('g-streets');
+  const gb=document.getElementById('g-before');
+  const ga=document.getElementById('g-after');
+  const gm=document.getElementById('g-marks');
+  streets.innerHTML=gb.innerHTML=ga.innerHTML=gm.innerHTML='';
+  const focus=document.getElementById('focus').value;
+  const show=id=>document.getElementById(id).checked;
+
+  if(show('streets')){
+    let d='';
+    for(const s of EAST_STREETS) d+=`M${s[0]} ${s[1]}L${s[2]} ${s[3]}`;
+    streets.innerHTML=`<path d="${d}" fill="none" stroke="#2f6fed" stroke-width="0.7" opacity="0.45"/>`;
+  }
+
+  function drawSet(geo, group, color, width, which){
+    for(const [key,e] of Object.entries(geo)){
+      if(focus!=='all' && key!==focus && `${e.b}|${e.a}`!==focus) continue;
+      group.innerHTML+=`<path d="${pathD(e.points)}" fill="none" stroke="${color}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>`;
+      if(show('vias')){
+        for(const p of e.via){
+          group.innerHTML+=`<circle cx="${p[0]}" cy="${p[1]}" r="1.4" fill="${color}"/>`;
+        }
+      }
+    }
+  }
+  if(show('before')) drawSet(EAST_GEO.before, gb, '#e11', 1.5, 'before');
+  if(show('after')) drawSet(EAST_GEO.after, ga, '#285bb8', 1.8, 'after');
+
+  const nodes=show('after')?EAST_GEO.afterNodes:EAST_GEO.beforeNodes;
+  if(show('nodes')){
+    for(const [id,p] of Object.entries(EAST_GEO.afterNodes)){
+      gm.innerHTML+=`<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="#111" stroke="#ffd84d" stroke-width="1.3"/><text x="${p[0]+5}" y="${p[1]-4}" font-size="7" fill="#111" stroke="#fff" stroke-width="2.2" paint-order="stroke">${id}</text>`;
+    }
+  }
+  if(show('stops')){
+    for(const id of EAST_GEO.stopKeys){
+      const p=EAST_GEO.afterNodes[id];
+      gm.innerHTML+=`<circle cx="${p[0]}" cy="${p[1]}" r="4.5" fill="none" stroke="#285bb8" stroke-width="1.6"/><text x="${p[0]+6}" y="${p[1]+12}" font-size="6.5" fill="#285bb8" stroke="#fff" stroke-width="2" paint-order="stroke">${stopNames[id]||id}</text>`;
+    }
+  }
+}
+
+['streets','before','after','nodes','vias','stops','focus'].forEach(id=>{
+  document.getElementById(id).addEventListener('change',()=>{
+    if(id==='focus') boundsFor(document.getElementById('focus').value);
+    draw();
+  });
+});
+document.getElementById('zin').onclick=()=>{view.w*=0.75;view.h*=0.75;view.x+=view.w*0.125;view.y+=view.h*0.125;setView()};
+document.getElementById('zout').onclick=()=>{view.x-=view.w*0.125;view.y-=view.h*0.125;view.w*=1.25;view.h*=1.25;setView()};
+document.getElementById('reset').onclick=()=>{boundsFor('all');draw()};
+let pan=null;
+map.addEventListener('pointerdown',e=>{pan={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y};map.setPointerCapture(e.pointerId)});
+map.addEventListener('pointermove',e=>{
+  if(!pan) return;
+  const r=map.getBoundingClientRect();
+  view.x=pan.vx-(e.clientX-pan.x)/r.width*view.w;
+  view.y=pan.vy-(e.clientY-pan.y)/r.height*view.h;
+  setView();
+});
+map.addEventListener('pointerup',()=>pan=null);
+boundsFor('all'); draw();
+</script>
+</body>
+</html>

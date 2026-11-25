@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>AD-GEO-1 street alignment debug (temporary)</title>
+<style>
+  html,body{margin:0;height:100%;font:14px/1.4 system-ui,sans-serif;background:#1a1a1a;color:#eee}
+  #bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;background:#111;border-bottom:1px solid #333;position:sticky;top:0;z-index:2}
+  #bar label{display:flex;gap:6px;align-items:center;white-space:nowrap}
+  #bar select,button{background:#222;color:#eee;border:1px solid #555;border-radius:6px;padding:6px 10px}
+  #wrap{height:calc(100% - 52px)}
+  svg{width:100%;height:100%;background:#f5f6f2;touch-action:none}
+  .hint{opacity:.7;font-size:12px;margin-left:auto}
+</style>
+</head>
+<body>
+<div id="bar">
+  <strong>GEO debug</strong>
+  <label><input type="checkbox" id="showStreets" checked> street strokes</label>
+  <label><input type="checkbox" id="showCurrent" checked> current (red)</label>
+  <label><input type="checkbox" id="showProposed" checked> proposed (lime)</label>
+  <label><input type="checkbox" id="showNodes" checked> nodes</label>
+  <label><input type="checkbox" id="showVias" checked> vias</label>
+  <label>Route
+    <select id="route">
+      <option value="all">all edges</option>
+      <option value="campus">Campus Loop</option>
+      <option value="north">North Connector</option>
+      <option value="west">West</option>
+      <option value="east">East</option>
+      <option value="bryce">Bryce</option>
+      <option value="coleman">Coleman</option>
+    </select>
+  </label>
+  <button type="button" id="zoomIn">Zoom +</button>
+  <button type="button" id="zoomOut">Zoom −</button>
+  <button type="button" id="reset">Reset view</button>
+  <span class="hint">Dev only — not shipped. Drag to pan. Compare red (before) vs lime (after) on basemap roads.</span>
+</div>
+<div id="wrap">
+<svg id="map" viewBox="130 85 760 760">
+  <image href="campus-map.svg" x="0" y="0" width="1080" height="1341.28" opacity="1"/>
+  <g id="streets" opacity="0.55"></g>
+  <g id="current"></g>
+  <g id="proposed"></g>
+  <g id="nodes"></g>
+</svg>
+</div>
+<script src="_geo-debug-streets.js"></script>
+<script>
+const patterns={
+  campus:['pv','north','lake','paty','sc','bidgood','cap','capH','hub','eng','hackN','riverE','pv'],
+  north:['pv','riverE','hackN','eng','hub','capH','cap','bidgood','sc','paty','lake','north','pv'],
+  west:['sc','west','westCap','bidgood','quadW','tut','bryantH','uniH','quadE','cap','bidgood','sc'],
+  east:['hub','eastHub','recN','rec','recS','uniE','uniH','capH','hub'],
+  bryce:['hub','eng','hackN','bryceS','bryceN','bryceE','recN','eastHub','hub'],
+  coleman:['cap','capH','uniH','bryantH','colW','colE','colN','second','bryantH','tut','quadW','bidgood','cap']
+};
+const map=document.getElementById('map');
+let view={x:130,y:85,w:760,h:760};
+function setView(){map.setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`)}
+function edgeKey(a,b){return a+'|'+b}
+function edgeMap(geo){
+  const m=new Map();
+  for(const e of geo.edges){
+    m.set(edgeKey(e.a,e.b),e);
+    m.set(edgeKey(e.b,e.a),{...e,via:[...e.via].reverse(),a:e.b,b:e.a});
+  }
+  return m;
+}
+function pointsFor(geo,a,b){
+  const e=edgeMap(geo).get(edgeKey(a,b));
+  if(!e) return null;
+  const na=geo.nodes[a], nb=geo.nodes[b];
+  return [na, ...e.via, nb];
+}
+function pathD(pts){return pts.map((p,i)=>(i?'L':'M')+p[0]+' '+p[1]).join(' ')}
+function selectedEdgeKeys(){
+  const id=document.getElementById('route').value;
+  if(id==='all') return null;
+  const ids=patterns[id], keys=new Set();
+  for(let i=0;i<ids.length-1;i++){
+    keys.add(edgeKey(ids[i],ids[i+1]));
+    keys.add(edgeKey(ids[i+1],ids[i]));
+  }
+  return keys;
+}
+function draw(){
+  const streets=document.getElementById('streets');
+  const cur=document.getElementById('current');
+  const prop=document.getElementById('proposed');
+  const nodesG=document.getElementById('nodes');
+  streets.innerHTML=cur.innerHTML=prop.innerHTML=nodesG.innerHTML='';
+  const showStreets=document.getElementById('showStreets').checked;
+  const showCurrent=document.getElementById('showCurrent').checked;
+  const showProposed=document.getElementById('showProposed').checked;
+  const showNodes=document.getElementById('showNodes').checked;
+  const showVias=document.getElementById('showVias').checked;
+  const keys=selectedEdgeKeys();
+
+  if(showStreets){
+    let d='';
+    for(const s of STREET_SEGS){d+=`M${s[0]} ${s[1]}L${s[2]} ${s[3]}`;}
+    streets.innerHTML=`<path d="${d}" fill="none" stroke="#1e90ff" stroke-width="0.9" opacity="0.7"/>`;
+  }
+
+  function drawGeo(geo, group, color, width){
+    const seen=new Set();
+    for(const e of geo.edges){
+      const k1=edgeKey(e.a,e.b), k2=edgeKey(e.b,e.a);
+      if(keys && !keys.has(k1) && !keys.has(k2)) continue;
+      const sk=e.a+'::'+e.b; if(seen.has(sk)) continue; seen.add(sk);
+      const pts=[geo.nodes[e.a], ...e.via, geo.nodes[e.b]];
+      group.innerHTML+=`<path d="${pathD(pts)}" fill="none" stroke="${color}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>`;
+      if(showVias){
+        for(const p of e.via){
+          group.innerHTML+=`<circle cx="${p[0]}" cy="${p[1]}" r="1.6" fill="${color}" opacity="0.85"/>`;
+        }
+      }
+    }
+  }
+  if(showCurrent) drawGeo(GEO_CURRENT, cur, '#ff2d2d', 3.2);
+  if(showProposed) drawGeo(GEO_PROPOSAL, prop, '#7CFF4D', 2.6);
+
+  if(showNodes){
+    const geo=GEO_PROPOSAL;
+    for(const [id,p] of Object.entries(geo.nodes)){
+      if(keys){
+        const used=[...keys].some(k=>k.startsWith(id+'|')||k.endsWith('|'+id));
+        if(!used) continue;
+      }
+      nodesG.innerHTML+=`<circle cx="${p[0]}" cy="${p[1]}" r="3.2" fill="#111" stroke="#ffe566" stroke-width="1.4"/><text x="${p[0]+5}" y="${p[1]-5}" font-size="7" fill="#111" stroke="#fff" stroke-width="2.5" paint-order="stroke">${id}</text>`;
+    }
+  }
+}
+['showStreets','showCurrent','showProposed','showNodes','showVias','route'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', draw);
+});
+document.getElementById('zoomIn').onclick=()=>{view.w*=0.75;view.h*=0.75;view.x+=view.w*0.125;view.y+=view.h*0.125;setView()};
+document.getElementById('zoomOut').onclick=()=>{view.x-=view.w*0.125;view.y-=view.h*0.125;view.w*=1.25;view.h*=1.25;setView()};
+document.getElementById('reset').onclick=()=>{view={x:130,y:85,w:760,h:760};setView()};
+let pan=null;
+map.addEventListener('pointerdown',e=>{pan={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y};map.setPointerCapture(e.pointerId)});
+map.addEventListener('pointermove',e=>{
+  if(!pan) return;
+  const rect=map.getBoundingClientRect();
+  const dx=(e.clientX-pan.x)/rect.width*view.w;
+  const dy=(e.clientY-pan.y)/rect.height*view.h;
+  view.x=pan.vx-dx; view.y=pan.vy-dy; setView();
+});
+map.addEventListener('pointerup',()=>pan=null);
+draw();
+</script>
+</body>
+</html>

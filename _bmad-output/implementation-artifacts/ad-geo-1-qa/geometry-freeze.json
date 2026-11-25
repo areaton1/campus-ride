@@ -1,0 +1,113 @@
+{
+  "frozenAt": "2026-11-25T21:30:15.216Z",
+  "branch": "feature/place-catalog-batch-1",
+  "policy": "no further automatic coordinate changes",
+  "networkJsSha256": "2952732f9c6a58a6552109f7bd0cf799171e358f3fa60eb48aae72a4a0e0ebd3",
+  "routes": {
+    "campus": {
+      "pattern": [
+        "pv",
+        "north",
+        "lake",
+        "paty",
+        "sc",
+        "bidgood",
+        "cap",
+        "capH",
+        "hub",
+        "eng",
+        "hackN",
+        "riverE",
+        "pv"
+      ],
+      "pointCount": 68,
+      "polySha256": "474d90c6be71c1d38ae61b7d3fe6ade5516e1eae7502376f450acee0a083a7e0"
+    },
+    "north": {
+      "pattern": [
+        "pv",
+        "riverE",
+        "hackN",
+        "eng",
+        "hub",
+        "capH",
+        "cap",
+        "bidgood",
+        "sc",
+        "paty",
+        "lake",
+        "north",
+        "pv"
+      ],
+      "pointCount": 68,
+      "polySha256": "9eb590cf6dc834983d6ebad79383cf296b68e41c845af74a31ac04c6097c8863"
+    },
+    "west": {
+      "pattern": [
+        "sc",
+        "west",
+        "westCap",
+        "bidgood",
+        "quadW",
+        "tut",
+        "bryantH",
+        "uniH",
+        "quadE",
+        "cap",
+        "bidgood",
+        "sc"
+      ],
+      "pointCount": 78,
+      "polySha256": "b88bbd70a85325f0b109b0712b20938fdaf593ae657982efe6e3de495c6ca14b"
+    },
+    "east": {
+      "pattern": [
+        "hub",
+        "eastHub",
+        "recN",
+        "rec",
+        "recS",
+        "uniE",
+        "uniH",
+        "capH",
+        "hub"
+      ],
+      "pointCount": 65,
+      "polySha256": "d19de327b819ca70718c36ec4669f2a308b2aa9bb2bcc3dac943b44bca3a0329"
+    },
+    "bryce": {
+      "pattern": [
+        "hub",
+        "eng",
+        "hackN",
+        "bryceS",
+        "bryceN",
+        "bryceE",
+        "recN",
+        "eastHub",
+        "hub"
+      ],
+      "pointCount": 65,
+      "polySha256": "637245696885895344847fb9f634769535f7b497a008ad3df1a1e3c886f13f90"
+    },
+    "coleman": {
+      "pattern": [
+        "cap",
+        "capH",
+        "uniH",
+        "bryantH",
+        "colW",
+        "colE",
+        "colN",
+        "second",
+        "bryantH",
+        "tut",
+        "quadW",
+        "bidgood",
+        "cap"
+      ],
+      "pointCount": 71,
+      "polySha256": "88996aaaed972b5fffa87746f27a5803101c968aa6285e0e1864448d0c98a7b4"
+    }
+  }
+}

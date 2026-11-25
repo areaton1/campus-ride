@@ -7,7 +7,9 @@ const documentStub={querySelector:()=>el(),querySelectorAll:()=>[],createElement
 const context=vm.createContext({assert,console,document:documentStub,window:{},localStorage:{getItem:()=>null},matchMedia:()=>({matches:false})});
 vm.runInContext(network+'\n'+app.slice(0,app.indexOf('const panel=$')),context);
 vm.runInContext(`
-assert.equal(places.length,14,'expected 14 searchable places');
+assert.equal(places.length,23,'expected 23 searchable places (14 baseline + Batch 1)');
+const batch1=['rodgers','bruno','fresh-food','alston','student-services','burke','foster','lloyd','lakeside-hall'];
+for(const id of batch1)assert(places.find(p=>p.id===id),'missing Batch 1 place '+id);
 for(const p of places){
   assert(p.visual,'missing visual for '+p.id);
   assert(Number.isFinite(p.visual.x)&&Number.isFinite(p.visual.y),'non-finite visual for '+p.id);
@@ -16,8 +18,10 @@ for(const p of places){
 }
 assert(places.find(p=>p.id==='serc').visual);
 assert(places.find(p=>p.id==='lakeside').visual);
+assert(places.find(p=>p.id==='lakeside-hall').visual);
+assert.notEqual(places.find(p=>p.id==='lakeside').id,places.find(p=>p.id==='lakeside-hall').id);
 const uncertain=places.filter(p=>p.visual.check).map(p=>p.id).sort();
-assert.deepEqual(uncertain,['bryce','paty','presidential','ridgecrest','serc']);
+assert.deepEqual(uncertain,['bryce','lakeside-hall','paty','presidential','ridgecrest','serc']);
 globalThis.__uncertain=uncertain;
 renderPanel=function(){};
 centerOnPlaces=function(){};

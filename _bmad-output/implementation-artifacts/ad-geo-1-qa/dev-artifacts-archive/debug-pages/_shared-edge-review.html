@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Shared-edge review (temporary) — sc|bidgood & bidgood|cap</title>
+<style>
+  html,body{margin:0;height:100%;background:#111;color:#eee;font:13px/1.35 system-ui,sans-serif}
+  #bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:8px 12px;background:#0a0a0a;border-bottom:1px solid #333}
+  #wrap{height:calc(100% - 48px)}
+  svg{width:100%;height:100%;background:#f5f6f2;touch-action:none}
+  .hint{opacity:.75;margin-left:auto;max-width:560px}
+  button{background:#222;color:#eee;border:1px solid #555;border-radius:6px;padding:5px 9px}
+</style>
+</head>
+<body>
+<div id="bar">
+  <strong>Shared-edge review</strong>
+  <span>Recheck: saved exports have <b>1 unanimous version</b> each (no West-vs-Campus conflict).</span>
+  <button type="button" id="focusSc">Frame Stadium sc|bidgood</button>
+  <button type="button" id="focusCap">Frame Capstone bidgood|cap</button>
+  <span class="hint">Red dashed = pre-batch production · Lime = unanimous export (now in network.js) · curb strokes under · temp only</span>
+</div>
+<div id="wrap">
+<svg id="map" viewBox="180 300 280 220" xmlns="http://www.w3.org/2000/svg">
+  <image href="campus-map.svg" x="0" y="0" width="1080" height="1341.28"/>
+  <g id="g-streets"></g>
+  <g id="g-old"></g>
+  <g id="g-new"></g>
+  <g id="g-marks"></g>
+</svg>
+</div>
+<script src="_geo-debug-streets.js"></script>
+<script>
+/* Prior production (before this batch) vs unanimous export from saved JSONs */
+const OLD={
+  'sc|bidgood':{a:'sc',b:'bidgood',nodes:{sc:[302,346],bidgood:[253.3,469.7]},via:[[285,348],[265,350],[245,352],[235,355],[231,365],[229,380],[226,400],[222,420],[218,435],[225,443],[240,445],[250,455],[253,465]]},
+  'bidgood|cap':{a:'bidgood',b:'cap',nodes:{bidgood:[253.3,469.7],cap:[356.2,455.3]},via:[[258.6,446.7],[272.7,445.4],[291.2,448.2],[312.6,449.7],[331.7,453.1],[343,454.1]]}
+};
+const NEW={
+  'sc|bidgood':{a:'sc',b:'bidgood',nodes:{sc:[302,346],bidgood:[253.3,469.7]},via:[[293.6,341.3],[268.1,345.9],[241.7,351.7],[229.9,354.5],[228.6,370.5],[226.2,383.6],[221.7,402],[218.1,421],[213.3,443.1],[259.7,419.4],[291.1,422.5],[286.9,448.5],[259.1,443.1]],agreedBy:['campus','north','west']},
+  'bidgood|cap':{a:'bidgood',b:'cap',nodes:{bidgood:[253.3,469.7],cap:[356.2,455.3]},via:[[259.5,444.6],[272.7,445.4],[291.2,448.2],[312.6,449.7],[331.7,453.1],[343,454.1]],agreedBy:['coleman','campus','north','west']}
+};
+const map=document.getElementById('map');
+let view={x:180,y:300,w:280,h:220};
+const setView=()=>map.setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`);
+const pathD=pts=>pts.map((p,i)=>(i?'L':'M')+p[0]+','+p[1]).join(' ');
+function pts(e){return [e.nodes[e.a],...e.via,e.nodes[e.b]];}
+function draw(){
+  const streets=document.getElementById('g-streets');
+  const oldG=document.getElementById('g-old');
+  const newG=document.getElementById('g-new');
+  const marks=document.getElementById('g-marks');
+  streets.innerHTML=oldG.innerHTML=newG.innerHTML=marks.innerHTML='';
+  if (typeof STREET_SEGS!=='undefined'){
+    let d='';
+    const pad=30,x0=view.x-pad,y0=view.y-pad,x1=view.x+view.w+pad,y1=view.y+view.h+pad;
+    for(const s of STREET_SEGS){
+      if((s[0]<x0&&s[2]<x0)||(s[0]>x1&&s[2]>x1)||(s[1]<y0&&s[3]<y0)||(s[1]>y1&&s[3]>y1)) continue;
+      d+=`M${s[0]},${s[1]}L${s[2]},${s[3]}`;
+    }
+    if(d){
+      const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+      p.setAttribute('d',d); p.setAttribute('fill','none'); p.setAttribute('stroke','#9aa39a');
+      p.setAttribute('stroke-width','0.85'); p.setAttribute('opacity','0.7'); p.setAttribute('pointer-events','none');
+      streets.appendChild(p);
+    }
+  }
+  for (const key of Object.keys(NEW)){
+    const o=OLD[key], n=NEW[key];
+    const po=document.createElementNS('http://www.w3.org/2000/svg','path');
+    po.setAttribute('d',pathD(pts(o))); po.setAttribute('fill','none'); po.setAttribute('stroke','#c0392b');
+    po.setAttribute('stroke-width','1.4'); po.setAttribute('stroke-dasharray','5 3'); po.setAttribute('opacity','0.75');
+    po.setAttribute('pointer-events','none'); oldG.appendChild(po);
+    const pn=document.createElementNS('http://www.w3.org/2000/svg','path');
+    pn.setAttribute('d',pathD(pts(n))); pn.setAttribute('fill','none'); pn.setAttribute('stroke','#39ff14');
+    pn.setAttribute('stroke-width','1.6'); pn.setAttribute('opacity','0.95'); pn.setAttribute('pointer-events','none');
+    newG.appendChild(pn);
+    for (const [id,p] of Object.entries(n.nodes)){
+      const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      c.setAttribute('cx',p[0]); c.setAttribute('cy',p[1]); c.setAttribute('r','3.2');
+      c.setAttribute('fill','#111'); c.setAttribute('stroke','#f5d76e'); c.setAttribute('stroke-width','1.3');
+      marks.appendChild(c);
+      const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x',p[0]+5); t.setAttribute('y',p[1]-5); t.setAttribute('font-size','9');
+      t.setAttribute('fill','#222'); t.setAttribute('stroke','#fff'); t.setAttribute('stroke-width','2.5');
+      t.setAttribute('paint-order','stroke'); t.textContent=id; marks.appendChild(t);
+    }
+  }
+}
+function frame(key){
+  const n=NEW[key]; const p=pts(n);
+  const xs=p.map(x=>x[0]), ys=p.map(x=>x[1]);
+  const pad=40;
+  let x1=Math.min(...xs)-pad,y1=Math.min(...ys)-pad,x2=Math.max(...xs)+pad,y2=Math.max(...ys)+pad;
+  let w=x2-x1,h=y2-y1;
+  const aspect=map.getBoundingClientRect().width/Math.max(1,map.getBoundingClientRect().height);
+  if(w/h<aspect) w=h*aspect; else h=w/aspect;
+  view={x:(x1+x2)/2-w/2,y:(y1+y2)/2-h/2,w,h}; setView(); draw();
+}
+document.getElementById('focusSc').onclick=()=>frame('sc|bidgood');
+document.getElementById('focusCap').onclick=()=>frame('bidgood|cap');
+map.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const f=e.deltaY>0?1.12:0.9;
+  const rect=map.getBoundingClientRect();
+  const mx=view.x+(e.clientX-rect.left)/rect.width*view.w;
+  const my=view.y+(e.clientY-rect.top)/rect.height*view.h;
+  view.w*=f; view.h*=f;
+  view.x=mx-(e.clientX-rect.left)/rect.width*view.w;
+  view.y=my-(e.clientY-rect.top)/rect.height*view.h;
+  setView(); draw();
+},{passive:false});
+let pan=null;
+map.addEventListener('pointerdown',e=>{pan={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y};map.setPointerCapture(e.pointerId)});
+map.addEventListener('pointermove',e=>{
+  if(!pan) return;
+  const rect=map.getBoundingClientRect();
+  view.x=pan.vx-(e.clientX-pan.x)/rect.width*view.w;
+  view.y=pan.vy-(e.clientY-pan.y)/rect.height*view.h;
+  setView(); draw();
+});
+map.addEventListener('pointerup',()=>pan=null);
+frame('sc|bidgood');
+</script>
+</body>
+</html>
