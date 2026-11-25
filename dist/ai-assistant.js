@@ -52,6 +52,23 @@
       phrases.add('pv');
     }
     if (name === 'ridgecrest south') phrases.add('ridgecrest');
+    if (name === 'fresh food company') {
+      phrases.add('fresh food');
+      phrases.add('fresh foods');
+      phrases.add('ffc');
+    }
+    if (name === 'student services center') phrases.add('student services');
+    if (name === 'bruno business library') phrases.add('business library');
+    if (name === 'foster auditorium') phrases.add('foster auditorium');
+    if (name === 'lakeside hall') {
+      phrases.add('lakeside hall');
+      phrases.add('lakeside dorm');
+      phrases.add('lakeside residential');
+    }
+    if (name === 'lakeside dining') {
+      phrases.add('lakeside dining');
+      phrases.add('lakeside food');
+    }
     return [...phrases].filter(Boolean).sort((a, b) => b.length - a.length);
   }
 
@@ -155,7 +172,7 @@
   }
 
   function isGenericPhrase(phrase) {
-    return /^(the )?(dorm|dorms|residence|library|dining|food)$/.test(normalize(phrase));
+    return /^(the )?(dorm|dorms|residence|library|dining|food|lakeside)$/.test(normalize(phrase));
   }
 
   function placesForAmbiguousPhrase(phrase, places) {
@@ -168,6 +185,10 @@
     }
     if (p === 'dining' || p === 'food' || p === 'eat') {
       return places.filter(x => /dining|food/i.test(x.category + ' ' + (x.aliases || '')));
+    }
+    /* Bare "lakeside" must clarify Dining vs Hall (AD-PLACE Batch 1) */
+    if (p === 'lakeside') {
+      return places.filter(x => x.id === 'lakeside' || x.id === 'lakeside-hall');
     }
     const { hits } = findHits(phrase, places);
     return uniquePlaces(hits);

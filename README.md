@@ -157,10 +157,10 @@ node tests/ai-assistant.cjs
 Recent successful routing snapshot (observed counts, **not** a fixed acceptance contract; approved routing changes may change them):
 
 ```json
-{"walkingPairs":182,"itineraries":1904,"noUsefulBusCases":64,"routes":6}
+{"walkingPairs":506,"itineraries":5128,"noUsefulBusCases":216,"routes":6}
 ```
 
-`poi.cjs` checks 14 searchable places, visual-vs-entrance separation, and trip-lock on POI actions. `ai-assistant.cjs` checks scripted interpret/guardrail behavior (confirm-before-apply, ambiguity, unsupported places, live/off-topic refusal, no invented place IDs). If a command throws, something in that contract broke. JSON + exit 0 means that suite passed for this run.
+`poi.cjs` checks 23 searchable places (14 baseline + Batch 1), visual-vs-entrance separation, and trip-lock on POI actions. `ai-assistant.cjs` checks scripted interpret/guardrail behavior (confirm-before-apply, ambiguity including Lakeside Hall vs Dining and multi-library clarify, unsupported places, live/off-topic refusal, no invented place IDs). If a command throws, something in that contract broke. JSON + exit 0 means that suite passed for this run.
 
 **US-17 note:** The assistant is a deterministic local script for the class prototype. It does not call external AI services. Actual model accuracy and live-data reliability cannot be validated through this simulation.
 

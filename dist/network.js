@@ -1,64 +1,77 @@
 /* Coordinates follow the bundled UA 2014 reference artwork (1080 × 1341.28).
- * Street traces are presentation geometry, not official service patterns.
+ * Street traces are presentation geometry aligned to illustrated roads on
+ * campus-map.svg (AD-GEO-1) — not official Crimson Ride service patterns.
  * Walking corridors and entrance connectors are illustrative where the reference
  * does not resolve sidewalks. No GPS or current accessibility claim is made.
  */
 const CampusNetwork = (() => {
+  /* Nodes sit on illustrated street corridors (AD-GEO-1). Coleman full manual export 2026-11-25 → _coleman-manual-export.json. */
   const nodes = {
-    pv:[340,181], north:[314,180], lake:[316,239], paty:[309,278], sc:[299,347],
-    west:[224,354], westCap:[198,440], bidgood:[235,449], quadW:[231,529],
-    cap:[356,457], capH:[400,431], hub:[444,404], eng:[475,354], hackN:[400,249],
-    riverE:[400,180], quadE:[358,554], uniH:[400,563], uniE:[803,647],
-    recN:[758,356], rec:[797,448], recS:[808,504], eastHub:[541,437],
-    bryceS:[541,328], bryceN:[570,157], bryceE:[714,288],
-    bryantH:[400,676], tut:[210,668], bryantE:[801,697], second:[478,680],
-    colW:[400,819], colE:[478,817], colN:[478,758]
+    pv:[339,179], north:[315,181], lake:[316,239], paty:[306,278], sc:[302,346],
+    west:[225,355], westCap:[194,439], bidgood:[253.3,469.7],
+    quadW:[230.3,565.4],
+    cap:[356.2,455.3], capH:[398,430], hub:[452.3,405.1], eng:[476,351], hackN:[400,249],
+    riverE:[400,180], quadE:[360,568], uniH:[403.1,570.2], uniE:[798.7,651],
+    recN:[764,366.5], rec:[801,449], recS:[815,511.1], eastHub:[546.9,436.9],
+    bryceS:[542,333], bryceN:[570,157], bryceE:[714,294],
+    bryantH:[402,678], tut:[206,672], bryantE:[802,700], second:[501.8,679.2],
+    colW:[401,817], colE:[480,815], colN:[482,756]
   };
   const edges = [];
   const edge=(a,b,via=[],name='Campus street')=>edges.push({a,b,name,points:[nodes[a],...via,nodes[b]]});
-  edge('pv','north',[[327,180],[319,177]],'Presidential campus drive');
-  edge('pv','riverE',[[352,183],[367,182],[382,178]],'Presidential campus drive');
+  edge('pv','north',[[327,178],[321,178]],'Presidential campus drive');
+  edge('pv','riverE',[[352,181],[367,180],[382,178],[392,178]],'Presidential campus drive');
   edge('north','lake',[[318,193],[320,207],[319,220],[318,230]],'McCorvey Drive');
   edge('lake','paty',[[314,252],[311,264]],'McCorvey Drive');
-  edge('paty','sc',[[306,297],[303,318],[300,337]],'McCorvey Drive');
-  edge('sc','west',[[278,349],[254,353],[238,355]],'Campus Drive West');
-  edge('sc','bidgood',[[295,366],[292,386],[283,400],[266,409],[249,420],[239,433]],'Stadium Drive');
-  edge('west','westCap',[[217,377],[212,399],[205,422]],'Marrs Spring Road');
-  edge('westCap','bidgood',[[202,445],[216,447]],'Capstone Drive');
-  edge('bidgood','cap',[[259,450],[286,451],[315,453],[341,456]],'Capstone Drive');
-  edge('cap','capH',[[367,457],[375,448],[388,439]],'Margaret Drive');
-  edge('capH','hub',[[405,419],[415,411],[429,402],[438,400]],'Campus Drive');
-  edge('hub','eng',[[456,397],[466,389],[473,379],[475,367]],'Hackberry Lane');
-  edge('eng','hackN',[[475,337],[474,319],[469,303],[459,287],[449,278],[432,267],[415,258]],'Hackberry Lane');
-  edge('hackN','riverE',[[397,241],[397,231],[402,218],[401,207],[399,193]],'Hackberry Lane');
-  edge('lake','hackN',[[329,239],[346,243],[363,246],[381,247]],'Hackberry Lane');
-  edge('bidgood','quadW',[[234,469],[233,490],[231,513]],'Colonial Drive');
-  edge('quadW','quadE',[[257,535],[282,540],[311,546],[336,550]],'University Boulevard');
-  edge('cap','quadE',[[360,466],[360,490],[359,518],[358,542]],'Sixth Avenue');
-  edge('quadE','uniH',[[377,558],[390,561]],'University Boulevard');
-  edge('capH','uniH',[[399,452],[398,480],[398,510],[398,536],[399,552]],'Hackberry Lane');
-  edge('uniH','uniE',[[439,572],[478,580],[519,589],[561,598],[607,608],[652,617],[697,627],[743,637],[781,645]],'University Boulevard');
-  edge('hub','eastHub',[[459,411],[480,421],[501,429],[520,435]],'Campus Drive East');
-  edge('eastHub','recN',[[562,437],[583,434],[605,430],[628,422],[654,412],[681,401],[708,390],[733,378],[750,370]],'Campus Drive East');
-  edge('recN','rec',[[765,374],[774,395],[783,417],[791,438]],'Peter Bryce Boulevard');
-  edge('rec','recS',[[802,466],[805,477],[816,478],[821,484],[818,490],[807,493]],'Recreation access drive');
-  edge('recS','uniE',[[806,526],[805,549],[806,575],[805,600],[803,625]],'Peter Bryce Boulevard');
-  edge('eastHub','bryceS',[[542,412],[543,385],[543,359],[542,341]],'Bryce campus drive');
-  edge('hackN','bryceS',[[421,243],[448,237],[472,230],[488,220],[501,211],[513,219],[524,229],[535,232],[540,243],[539,270],[540,301]],'Bryce campus drive');
-  edge('bryceS','bryceE',[[558,330],[579,328],[600,323],[622,315],[643,305],[661,295],[664,288],[687,289]],'Kilgore Lane');
-  edge('bryceE','bryceN',[[714,268],[713,244],[713,220],[709,202],[696,188],[694,175],[683,167],[657,162],[628,159],[598,157]],'Bryce campus loop');
-  edge('bryceN','bryceS',[[552,157],[540,159],[532,166],[526,181],[520,197],[513,210],[524,219],[538,230],[544,238],[543,262],[541,292]],'Bryce campus loop');
-  edge('bryceE','recN',[[719,296],[722,307],[719,318],[710,329],[697,340],[681,353],[665,372],[649,391],[644,404],[654,412],[681,401],[708,390],[733,378],[750,370]],'Bryce campus connection');
-  edge('uniH','bryantH',[[400,586],[399,614],[400,643],[400,662]],'Hackberry Lane');
-  edge('quadW','tut',[[227,548],[222,573],[220,598],[217,625],[214,649]],'Colonial Drive');
-  edge('tut','bryantH',[[239,669],[274,672],[311,674],[347,675],[377,675]],'Paul W. Bryant Drive');
-  edge('bryantH','second',[[424,677],[450,678]],'Paul W. Bryant Drive');
-  edge('second','bryantE',[[520,682],[565,685],[610,689],[658,693],[704,697],[751,700],[781,700]],'Paul W. Bryant Drive');
-  edge('uniE','bryantE',[[802,666],[802,685]],'Peter Bryce Boulevard');
-  edge('bryantH','colW',[[400,704],[400,736],[400,768],[400,796]],'Hackberry Lane');
-  edge('colW','colE',[[422,821],[445,821],[463,819]],'Coliseum Street');
-  edge('colE','colN',[[478,800],[478,778]],'Second Avenue');
-  edge('colN','second',[[480,744],[485,732],[489,714],[489,696],[485,687]],'Second Avenue');
+  edge('paty','sc',[[304,295],[303,315],[302,330],[302,340]],'McCorvey Drive');
+  edge('sc','west',[[285,348],[265,350],[245,353],[235,355]],'Campus Drive West');
+  /* Stadium Drive — consensus campus/north/west manual export */
+  edge('sc','bidgood',[[293.6,341.3],[268.1,345.9],[241.7,351.7],[229.9,354.5],[228.6,370.5],[226.2,383.6],[221.7,402],[218.1,421],[213.3,443.1],[259.7,419.4],[291.1,422.5],[286.9,448.5],[259.1,443.1]],'Stadium Drive');
+  edge('west','westCap',[[225,365],[223,380],[220,400],[215,420],[210.2,439],[198,438]],'Marrs Spring Road');
+  /* West Capstone — west manual export */
+  edge('westCap','bidgood',[[197.5,447.9],[204.6,450.7],[220,444],[235,445],[248,447],[252,455],[253.3,462]],'Capstone Drive');
+  /* Capstone Drive — consensus coleman/campus/north/west manual export */
+  edge('bidgood','cap',[[259.5,444.6],[272.7,445.4],[291.2,448.2],[312.6,449.7],[331.7,453.1],[343,454.1]],'Capstone Drive');
+  edge('cap','capH',[[364.6,447.9],[375,441],[388,434]],'Margaret Drive');
+  edge('capH','hub',[[408,426],[418,418],[428,412],[438,408]],'Campus Drive');
+  edge('hub','eng',[[462.2,397.1],[471.5,385.9],[476.2,368.6]],'Hackberry Lane');
+  /* Hackberry Lane N: follow road bend past engineering */
+  edge('eng','hackN',[[476,335],[475,315],[470,295],[455,275],[433.6,261.2],[415.9,254.6]],'Hackberry Lane');
+  edge('hackN','riverE',[[400,235],[400,220],[400,200],[400,188]],'Hackberry Lane');
+  edge('lake','hackN',[[330,240],[350,244],[370,246],[388,247]],'Hackberry Lane');
+  /* Colonial Drive — full Coleman manual export (shared west) */
+  edge('bidgood','quadW',[[251.6,476.2],[248.5,488.4],[244.5,505.7],[240.2,524],[235.9,541.5],[234.1,555.8]],'Colonial Drive');
+  /* University Boulevard south of Quad — follow street, not lawn diagonal */
+  edge('quadW','quadE',[[250,564],[280,566],[310,567],[335,568],[350,568]],'University Boulevard');
+  edge('cap','quadE',[[364.4,459.1],[362.3,491.7],[361.2,518.1],[359.6,543.8],[360,560]],'Sixth Avenue');
+  edge('quadE','uniH',[[375,570],[395,570],[405,570]],'University Boulevard');
+  /* Hackberry Lane — consensus coleman/east manual export */
+  edge('capH','uniH',[[408.9,432.8],[407.1,460.6],[406.7,487.1],[404.5,510],[402.6,532.5],[401.3,546.8],[399.1,560.4]],'Hackberry Lane');
+  /* University Blvd east — east manual export */
+  edge('uniH','uniE',[[430,572],[460,578],[490,584],[520,590],[550,596],[578.2,602],[612.5,610],[645.2,618.5],[678.3,625.5],[705.9,629.7],[734,637.1],[760,642],[785.9,647.6]],'University Boulevard');
+  edge('hub','eastHub',[[461,409],[480,418],[499.9,426.8],[519.2,433],[538.1,436.9]],'Campus Drive East');
+  edge('eastHub','recN',[[560,438],[580.2,435.8],[606.6,430.2],[630,422.6],[656,412.2],[680.3,401.1],[706.1,390.3],[729.6,380.3],[748.1,371.8],[757.3,367]],'Campus Drive East');
+  edge('recN','rec',[[770,374],[778,394],[784.3,415.6],[789.7,430.1],[797,441]],'Peter Bryce Boulevard');
+  edge('rec','recS',[[805,461],[809,475.2],[811.7,485.4],[813.6,495.1],[815.5,503.3]],'Recreation access drive');
+  edge('recS','uniE',[[814,525],[814,545],[813.9,565.9],[811.8,585.6],[807.1,608.6],[805.4,626.8],[801.8,640.3]],'Peter Bryce Boulevard');
+  edge('eastHub','bryceS',[[548,415],[548,385],[545,355],[543,340]],'Bryce campus drive');
+  /* Bryce manual export 2026-11-25 — exclusive loop + shared hub/eastHub/recN / Campus Dr East / Hackberry N applied */
+  edge('hackN','bryceS',[[415,245],[450,238],[485,228],[510,220],[529.2,228],[538.9,242.7],[541,280],[542,310]],'Bryce campus drive');
+  edge('bryceS','bryceE',[[560,332],[590,328],[630,315],[665,300],[690,295],[705,294]],'Kilgore Lane');
+  edge('bryceE','bryceN',[[728,270.6],[727.4,240.7],[725.5,213.5],[701.3,174],[678,162.1],[630,157],[600,157]],'Bryce campus loop');
+  edge('bryceN','bryceS',[[550,158],[536.6,183.3],[529,204.9],[545.5,221.1],[546.5,238.4],[542,280],[542,310]],'Bryce campus loop');
+  edge('bryceE','recN',[[724.5,316.2],[710,330],[694.3,349.5],[678,372.9],[663.4,393.7],[658.2,402.1],[672.2,397.9],[700,385],[731.1,372],[751.8,363.5]],'Bryce campus connection');
+  edge('uniH','bryantH',[[400,594.7],[399.6,618.9],[400.2,643.7],[399.7,662.7],[402,672]],'Hackberry Lane');
+  edge('quadW','tut',[[227,580],[220.3,601.2],[216.1,622.9],[212.1,645.3],[208.1,658.8]],'Colonial Drive');
+  edge('tut','bryantH',[[211.5,666.5],[258,667.9],[298.6,670.6],[342.9,674],[372.9,675.6],[391.4,677.1]],'Paul W. Bryant Drive');
+  edge('bryantH','second',[[420,678],[445,678],[470,678],[485,678]],'Paul W. Bryant Drive');
+  edge('second','bryantE',[[510,682],[560,686],[610,690],[660,694],[710,697],[760,699],[785,700]],'Paul W. Bryant Drive');
+  edge('uniE','bryantE',[[801,660],[801,680],[801,695]],'Peter Bryce Boulevard');
+  /* Coleman south loop — manual editor (coleman-only) */
+  edge('bryantH','colW',[[401,700],[401,725],[401,750],[401,775],[401,800]],'Hackberry Lane');
+  edge('colW','colE',[[420.6,822.1],[440.3,823.5],[457.2,821.7],[470.3,818.8]],'Coliseum Street');
+  edge('colE','colN',[[481,798],[482,780],[482,765]],'Second Avenue');
+  edge('colN','second',[[502.1,755.3],[502,732],[502,713.5],[501.9,695]],'Second Avenue');
   function join(ids){let points=[],junctions=[];for(let i=0;i<ids.length-1;i++){const e=edges.find(e=>e.a===ids[i]&&e.b===ids[i+1]||e.b===ids[i]&&e.a===ids[i+1]);if(!e)throw Error('Missing street '+ids[i]+' '+ids[i+1]);const p=e.a===ids[i]?e.points:[...e.points].reverse();junctions.push(points.length?points.length-1:0);points.push(...(i?p.slice(1):p));}return{points,junctions};}
   const patterns={
     campus:['pv','north','lake','paty','sc','bidgood','cap','capH','hub','eng','hackN','riverE','pv'],
@@ -80,19 +93,29 @@ const CampusNetwork = (() => {
   edges.forEach(e=>link(e.a,e.b,e.points.map(walkPoint)));
   const entrances={
     presidential:{point:[342,164],to:'pv',via:[[345,169]]},
-    'student-center':{point:[308,365],to:'sc',via:[[304,365]]},
-    bidgood:{point:[239,464],to:'bidgood',via:[[240,455]]},
-    gorgas:{point:[309,466],to:'cap',via:[[309,462],[346,462],[361,462]]},
-    shelby:{point:[442,337],to:'eng',via:[[451,340],[455,349]]},
-    serc:{point:[387,369],to:'capH',via:[[397,369],[405,386],[405,413]]},
-    tutwiler:{point:[229,689],to:'tut',via:[[217,689],[215,678]]},
+    'student-center':{point:[308,360],to:'sc',via:[[304,355],[299,347]]},
+    bidgood:{point:[238,478],to:'bidgood',via:[[245,475],[252,470]]},
+    gorgas:{point:[318,452],to:'cap',via:[[330,450],[348,452],[356,455]]},
+    shelby:{point:[445,335],to:'eng',via:[[460,340],[470,348],[478,352]]},
+    serc:{point:[395,375],to:'capH',via:[[398,390],[398,410],[398,428]]},
+    tutwiler:{point:[225,690],to:'tut',via:[[215,690],[207,680]]},
     ridgecrest:{point:[209,284],to:'west',via:[[191,284],[197,304],[205,330],[214,346]]},
-    stadium:{point:[194,611],to:'tut',via:[[207,611],[210,633],[212,650]]},
+    stadium:{point:[190,615],to:'tut',via:[[200,630],[203,650],[207,668]]},
     paty:{point:[298,287],to:'paty',via:[[308,287],[314,282]]},
     lakeside:{point:[300,246],to:'lake',via:[[310,248],[321,248]]},
-    rec:{point:[765,444],to:'rec',via:[[774,444],[788,444]]},
-    coleman:{point:[488,777],to:'colN',via:[[484,777],[483,765]]},
-    bryce:{point:[580,272],to:'bryceS',via:[[580,282],[580,301],[578,316],[564,322]]}
+    rec:{point:[765,444],to:'rec',via:[[780,448],[798,450]]},
+    coleman:{point:[488,777],to:'colN',via:[[484,777],[483,760]]},
+    bryce:{point:[580,272],to:'bryceS',via:[[580,282],[580,301],[578,316],[564,322]]},
+    /* Batch 1 entrances — updated after POI recenter + street realign */
+    rodgers:{point:[460,365],to:'eng',via:[[470,360],[478,352]]},
+    bruno:{point:[215,470],to:'bidgood',via:[[230,470],[245,470],[252,468]]},
+    'fresh-food':{point:[370,405],to:'capH',via:[[385,415],[398,428]]},
+    alston:{point:[230,445],to:'bidgood',via:[[240,450],[248,458],[252,465]]},
+    'student-services':{point:[290,340],to:'sc',via:[[299,347]]},
+    burke:{point:[405,625],to:'bryantH',via:[[402,650],[402,676]]},
+    foster:{point:[300,585],to:'quadE',via:[[320,575],[365,568]]},
+    lloyd:{point:[370,515],to:'quadE',via:[[368,540],[365,568]]},
+    'lakeside-hall':{point:[270,235],to:'lake',via:[[290,240],[316,239]]}
   };
   for(const [id,e] of Object.entries(entrances)){const key='place:'+id;walkNodes[key]=e.point;link(key,e.to,[e.point,...e.via,walkNodes[e.to]]);}
   const walkCache=new Map();

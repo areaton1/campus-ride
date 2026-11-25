@@ -1,0 +1,66 @@
+{
+  "branch": "feature/place-catalog-batch-1",
+  "frozenAt": "2026-11-25T21:30:15.216Z",
+  "networkJsSha256": "2952732f9c6a58a6552109f7bd0cf799171e358f3fa60eb48aae72a4a0e0ebd3",
+  "tests": {
+    "routing": {
+      "exit": 0,
+      "walkingPairs": 506,
+      "itineraries": 5128,
+      "noUsefulBusCases": 216,
+      "routes": 6
+    },
+    "poi": {
+      "exit": 0,
+      "places": 23,
+      "uncertain": [
+        "bryce",
+        "lakeside-hall",
+        "paty",
+        "presidential",
+        "ridgecrest",
+        "serc"
+      ],
+      "visualSeparated": true,
+      "previewOk": true,
+      "tripLockOk": true
+    },
+    "aiAssistant": {
+      "exit": 0,
+      "places": 23,
+      "allFlagsOk": true
+    }
+  },
+  "shippingDist": [
+    "index.html",
+    "app.js",
+    "network.js",
+    "mobile.js",
+    "ai-assistant.js",
+    "campus-map.svg"
+  ],
+  "archivedFromDist": "_bmad-output/implementation-artifacts/ad-geo-1-qa/dev-artifacts-archive/",
+  "nonShippingAlsoPresent": [
+    "map-src/ (map authoring source — not served by npm run dev default dist)",
+    "docs/*.pdf untracked import — do not treat as app ship set",
+    "_bmad-output/** development/BMAD artifacts"
+  ],
+  "gitTrackedDiffFiles": [
+    "README.md",
+    "_bmad-output/planning-artifacts/decision-log.md",
+    "dist/ai-assistant.js",
+    "dist/app.js",
+    "dist/network.js",
+    "tests/ai-assistant.cjs",
+    "tests/poi.cjs"
+  ],
+  "intact": {
+    "campusMapSvg": "unchanged vs HEAD (no git diff)",
+    "indexHtml": "unchanged vs HEAD",
+    "mobileJs": "unchanged vs HEAD",
+    "sixRoutes": true,
+    "places": 23
+  },
+  "policy": "geometry frozen — no further automatic coordinate changes",
+  "commitPushMerge": "NOT done — awaiting approval"
+}

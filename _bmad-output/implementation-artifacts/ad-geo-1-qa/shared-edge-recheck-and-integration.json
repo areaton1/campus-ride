@@ -1,0 +1,70 @@
+{
+  "branch": "feature/place-catalog-batch-1",
+  "sharedEdgeRecheck": {
+    "sc|bidgood": {
+      "conflict": false,
+      "distinctVersions": 1,
+      "routes": [
+        "campus",
+        "north",
+        "west"
+      ],
+      "note": "West matches Campus Loop + North Connector exactly (orientation-normalized)"
+    },
+    "bidgood|cap": {
+      "conflict": false,
+      "distinctVersions": 1,
+      "routes": [
+        "coleman",
+        "campus",
+        "north",
+        "west"
+      ],
+      "note": "West matches Coleman/Campus/North exactly"
+    }
+  },
+  "allExportConflicts": 0,
+  "routeExactMatch": {
+    "coleman": {
+      "busPathMatchesExport": true,
+      "len": 71
+    },
+    "campus": {
+      "busPathMatchesExport": true,
+      "len": 68
+    },
+    "north": {
+      "busPathMatchesExport": true,
+      "len": 68
+    },
+    "west": {
+      "busPathMatchesExport": true,
+      "len": 78
+    },
+    "east": {
+      "busPathMatchesExport": true,
+      "len": 65
+    },
+    "bryce": {
+      "busPathMatchesExport": true,
+      "len": 65
+    }
+  },
+  "tests": {
+    "routing": {
+      "walkingPairs": 506,
+      "itineraries": 5128,
+      "noUsefulBusCases": 216,
+      "exit": 0
+    },
+    "poi": {
+      "exit": 0
+    },
+    "aiAssistant": {
+      "exit": 0
+    }
+  },
+  "reviewPage": "dist/_shared-edge-review.html",
+  "note": "Overlay shows pre-batch production (red dashed) vs unanimous export now in network.js (lime). No second export variant exists.",
+  "stopForApproval": true
+}

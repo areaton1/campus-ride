@@ -1,0 +1,673 @@
+{
+  "bryceVerified": {
+    "exact": true,
+    "polyMaxD": 0
+  },
+  "routeStatus": {
+    "coleman": {
+      "exact": false,
+      "polyMismatches": 8,
+      "polyMaxD": 7.97,
+      "nodeDiffs": 1,
+      "edgeDiffs": 3
+    },
+    "campus": {
+      "exact": false,
+      "polyMismatches": 14,
+      "polyMaxD": 55.83,
+      "nodeDiffs": 0,
+      "edgeDiffs": 2
+    },
+    "north": {
+      "exact": false,
+      "polyMismatches": 14,
+      "polyMaxD": 55.83,
+      "nodeDiffs": 0,
+      "edgeDiffs": 2
+    },
+    "west": {
+      "exact": false,
+      "polyMismatches": 26,
+      "polyMaxD": 55.83,
+      "nodeDiffs": 1,
+      "edgeDiffs": 6
+    },
+    "east": {
+      "exact": false,
+      "polyMismatches": 23,
+      "polyMaxD": 8.32,
+      "nodeDiffs": 3,
+      "edgeDiffs": 5
+    },
+    "bryce": {
+      "exact": true,
+      "polyMismatches": 0,
+      "polyMaxD": 0,
+      "nodeDiffs": 0,
+      "edgeDiffs": 0
+    }
+  },
+  "remainingSharedChanges": [
+    {
+      "kind": "node",
+      "id": "uniH",
+      "d": 7.97,
+      "routes": [
+        "west",
+        "east",
+        "coleman"
+      ],
+      "requestedBy": [
+        "coleman",
+        "west",
+        "east"
+      ],
+      "conflict": false,
+      "from": [
+        400.7,
+        577.8
+      ],
+      "to": [
+        403.1,
+        570.2
+      ]
+    },
+    {
+      "kind": "edge",
+      "id": "bidgood|cap",
+      "name": "Capstone Drive",
+      "maxD": 2.28,
+      "routes": [
+        "campus",
+        "north",
+        "west",
+        "coleman"
+      ],
+      "requestedBy": [
+        "coleman",
+        "campus",
+        "north",
+        "west"
+      ],
+      "conflict": false
+    },
+    {
+      "kind": "edge",
+      "id": "capH|uniH",
+      "name": "Hackberry Lane",
+      "maxD": 7.03,
+      "routes": [
+        "east",
+        "coleman"
+      ],
+      "requestedBy": [
+        "coleman",
+        "east"
+      ],
+      "conflict": false
+    },
+    {
+      "kind": "edge",
+      "id": "quadW|tut",
+      "name": "Colonial Drive",
+      "maxD": 2.97,
+      "routes": [
+        "west",
+        "coleman"
+      ],
+      "requestedBy": [
+        "coleman",
+        "west"
+      ],
+      "conflict": false
+    },
+    {
+      "kind": "edge",
+      "id": "sc|bidgood",
+      "name": "Stadium Drive",
+      "maxD": 55.83,
+      "routes": [
+        "campus",
+        "north",
+        "west"
+      ],
+      "requestedBy": [
+        "campus",
+        "north",
+        "west"
+      ],
+      "conflict": false
+    },
+    {
+      "kind": "edge",
+      "id": "west|westCap",
+      "name": "Marrs Spring Road",
+      "maxD": 6.56,
+      "routes": [
+        "west"
+      ],
+      "requestedBy": [
+        "west"
+      ],
+      "conflict": false
+    },
+    {
+      "kind": "edge",
+      "id": "westCap|bidgood",
+      "name": "Capstone Drive",
+      "maxD": 8.61,
+      "routes": [
+        "west"
+      ],
+      "requestedBy": [
+        "west"
+      ],
+      "conflict": false
+    },
+    {
+      "kind": "edge",
+      "id": "cap|quadE",
+      "name": "Sixth Avenue",
+      "maxD": 14.43,
+      "routes": [
+        "west"
+      ],
+      "requestedBy": [
+        "west"
+      ],
+      "conflict": false
+    },
+    {
+      "kind": "node",
+      "id": "recS",
+      "d": 6.47,
+      "routes": [
+        "east"
+      ],
+      "requestedBy": [
+        "east"
+      ],
+      "conflict": false,
+      "from": [
+        810,
+        507
+      ],
+      "to": [
+        815,
+        511.1
+      ]
+    },
+    {
+      "kind": "node",
+      "id": "uniE",
+      "d": 7.03,
+      "routes": [
+        "east"
+      ],
+      "requestedBy": [
+        "east"
+      ],
+      "conflict": false,
+      "from": [
+        798,
+        644
+      ],
+      "to": [
+        798.7,
+        651
+      ]
+    },
+    {
+      "kind": "edge",
+      "id": "uniH|uniE",
+      "name": "University Boulevard",
+      "maxD": 8.32,
+      "routes": [
+        "east"
+      ],
+      "requestedBy": [
+        "east"
+      ],
+      "conflict": false
+    },
+    {
+      "kind": "edge",
+      "id": "recN|rec",
+      "name": "Peter Bryce Boulevard",
+      "maxD": 2.55,
+      "routes": [
+        "east"
+      ],
+      "requestedBy": [
+        "east"
+      ],
+      "conflict": false
+    },
+    {
+      "kind": "edge",
+      "id": "rec|recS",
+      "name": "Recreation access drive",
+      "maxD": 4.68,
+      "routes": [
+        "east"
+      ],
+      "requestedBy": [
+        "east"
+      ],
+      "conflict": false
+    },
+    {
+      "kind": "edge",
+      "id": "recS|uniE",
+      "name": "Peter Bryce Boulevard",
+      "maxD": 6.08,
+      "routes": [
+        "east"
+      ],
+      "requestedBy": [
+        "east"
+      ],
+      "conflict": false
+    }
+  ],
+  "perRoute": {
+    "coleman": {
+      "exact": false,
+      "poly": {
+        "prodLen": 71,
+        "exportLen": 71,
+        "mismatches": 8,
+        "maxD": 7.97
+      },
+      "nodeDiffs": [
+        {
+          "id": "uniH",
+          "from": [
+            400.7,
+            577.8
+          ],
+          "to": [
+            403.1,
+            570.2
+          ],
+          "d": 7.97,
+          "routes": [
+            "west",
+            "east",
+            "coleman"
+          ],
+          "shared": true
+        }
+      ],
+      "edgeDiffs": [
+        {
+          "key": "bidgood|cap",
+          "name": "Capstone Drive",
+          "mismatches": 1,
+          "maxD": 2.28,
+          "prodViaCount": 6,
+          "expViaCount": 6,
+          "routes": [
+            "campus",
+            "north",
+            "west",
+            "coleman"
+          ],
+          "shared": true
+        },
+        {
+          "key": "capH|uniH",
+          "name": "Hackberry Lane",
+          "mismatches": 2,
+          "maxD": 7.03,
+          "prodViaCount": 7,
+          "expViaCount": 7,
+          "routes": [
+            "east",
+            "coleman"
+          ],
+          "shared": true
+        },
+        {
+          "key": "quadW|tut",
+          "name": "Colonial Drive",
+          "mismatches": 4,
+          "maxD": 2.97,
+          "prodViaCount": 5,
+          "expViaCount": 5,
+          "routes": [
+            "west",
+            "coleman"
+          ],
+          "shared": true
+        }
+      ]
+    },
+    "campus": {
+      "exact": false,
+      "poly": {
+        "prodLen": 68,
+        "exportLen": 68,
+        "mismatches": 14,
+        "maxD": 55.83
+      },
+      "nodeDiffs": [],
+      "edgeDiffs": [
+        {
+          "key": "sc|bidgood",
+          "name": "Stadium Drive",
+          "mismatches": 13,
+          "maxD": 55.83,
+          "prodViaCount": 13,
+          "expViaCount": 13,
+          "routes": [
+            "campus",
+            "north",
+            "west"
+          ],
+          "shared": true
+        },
+        {
+          "key": "bidgood|cap",
+          "name": "Capstone Drive",
+          "mismatches": 1,
+          "maxD": 2.28,
+          "prodViaCount": 6,
+          "expViaCount": 6,
+          "routes": [
+            "campus",
+            "north",
+            "west",
+            "coleman"
+          ],
+          "shared": true
+        }
+      ]
+    },
+    "north": {
+      "exact": false,
+      "poly": {
+        "prodLen": 68,
+        "exportLen": 68,
+        "mismatches": 14,
+        "maxD": 55.83
+      },
+      "nodeDiffs": [],
+      "edgeDiffs": [
+        {
+          "key": "sc|bidgood",
+          "name": "Stadium Drive",
+          "mismatches": 13,
+          "maxD": 55.83,
+          "prodViaCount": 13,
+          "expViaCount": 13,
+          "routes": [
+            "campus",
+            "north",
+            "west"
+          ],
+          "shared": true
+        },
+        {
+          "key": "bidgood|cap",
+          "name": "Capstone Drive",
+          "mismatches": 1,
+          "maxD": 2.28,
+          "prodViaCount": 6,
+          "expViaCount": 6,
+          "routes": [
+            "campus",
+            "north",
+            "west",
+            "coleman"
+          ],
+          "shared": true
+        }
+      ]
+    },
+    "west": {
+      "exact": false,
+      "poly": {
+        "prodLen": 78,
+        "exportLen": 78,
+        "mismatches": 26,
+        "maxD": 55.83
+      },
+      "nodeDiffs": [
+        {
+          "id": "uniH",
+          "from": [
+            400.7,
+            577.8
+          ],
+          "to": [
+            403.1,
+            570.2
+          ],
+          "d": 7.97,
+          "routes": [
+            "west",
+            "east",
+            "coleman"
+          ],
+          "shared": true
+        }
+      ],
+      "edgeDiffs": [
+        {
+          "key": "sc|bidgood",
+          "name": "Stadium Drive",
+          "mismatches": 13,
+          "maxD": 55.83,
+          "prodViaCount": 13,
+          "expViaCount": 13,
+          "routes": [
+            "campus",
+            "north",
+            "west"
+          ],
+          "shared": true
+        },
+        {
+          "key": "west|westCap",
+          "name": "Marrs Spring Road",
+          "mismatches": 1,
+          "maxD": 6.56,
+          "prodViaCount": 6,
+          "expViaCount": 6,
+          "routes": [
+            "west"
+          ],
+          "shared": false
+        },
+        {
+          "key": "westCap|bidgood",
+          "name": "Capstone Drive",
+          "mismatches": 2,
+          "maxD": 8.61,
+          "prodViaCount": 7,
+          "expViaCount": 7,
+          "routes": [
+            "west"
+          ],
+          "shared": false
+        },
+        {
+          "key": "bidgood|cap",
+          "name": "Capstone Drive",
+          "mismatches": 1,
+          "maxD": 2.28,
+          "prodViaCount": 6,
+          "expViaCount": 6,
+          "routes": [
+            "campus",
+            "north",
+            "west",
+            "coleman"
+          ],
+          "shared": true
+        },
+        {
+          "key": "cap|quadE",
+          "name": "Sixth Avenue",
+          "mismatches": 4,
+          "maxD": 14.43,
+          "prodViaCount": 5,
+          "expViaCount": 5,
+          "routes": [
+            "west"
+          ],
+          "shared": false
+        },
+        {
+          "key": "quadW|tut",
+          "name": "Colonial Drive",
+          "mismatches": 4,
+          "maxD": 2.97,
+          "prodViaCount": 5,
+          "expViaCount": 5,
+          "routes": [
+            "west",
+            "coleman"
+          ],
+          "shared": true
+        }
+      ]
+    },
+    "east": {
+      "exact": false,
+      "poly": {
+        "prodLen": 65,
+        "exportLen": 65,
+        "mismatches": 23,
+        "maxD": 8.32
+      },
+      "nodeDiffs": [
+        {
+          "id": "recS",
+          "from": [
+            810,
+            507
+          ],
+          "to": [
+            815,
+            511.1
+          ],
+          "d": 6.47,
+          "routes": [
+            "east"
+          ],
+          "shared": false
+        },
+        {
+          "id": "uniE",
+          "from": [
+            798,
+            644
+          ],
+          "to": [
+            798.7,
+            651
+          ],
+          "d": 7.03,
+          "routes": [
+            "east"
+          ],
+          "shared": false
+        },
+        {
+          "id": "uniH",
+          "from": [
+            400.7,
+            577.8
+          ],
+          "to": [
+            403.1,
+            570.2
+          ],
+          "d": 7.97,
+          "routes": [
+            "west",
+            "east",
+            "coleman"
+          ],
+          "shared": true
+        }
+      ],
+      "edgeDiffs": [
+        {
+          "key": "capH|uniH",
+          "name": "Hackberry Lane",
+          "mismatches": 2,
+          "maxD": 7.03,
+          "prodViaCount": 7,
+          "expViaCount": 7,
+          "routes": [
+            "east",
+            "coleman"
+          ],
+          "shared": true
+        },
+        {
+          "key": "uniH|uniE",
+          "name": "University Boulevard",
+          "mismatches": 7,
+          "maxD": 8.32,
+          "prodViaCount": 13,
+          "expViaCount": 13,
+          "routes": [
+            "east"
+          ],
+          "shared": false
+        },
+        {
+          "key": "recN|rec",
+          "name": "Peter Bryce Boulevard",
+          "mismatches": 2,
+          "maxD": 2.55,
+          "prodViaCount": 5,
+          "expViaCount": 5,
+          "routes": [
+            "east"
+          ],
+          "shared": false
+        },
+        {
+          "key": "rec|recS",
+          "name": "Recreation access drive",
+          "mismatches": 4,
+          "maxD": 4.68,
+          "prodViaCount": 5,
+          "expViaCount": 5,
+          "routes": [
+            "east"
+          ],
+          "shared": false
+        },
+        {
+          "key": "recS|uniE",
+          "name": "Peter Bryce Boulevard",
+          "mismatches": 5,
+          "maxD": 6.08,
+          "prodViaCount": 7,
+          "expViaCount": 7,
+          "routes": [
+            "east"
+          ],
+          "shared": false
+        }
+      ]
+    },
+    "bryce": {
+      "exact": true,
+      "poly": {
+        "prodLen": 65,
+        "exportLen": 65,
+        "mismatches": 0,
+        "maxD": 0
+      },
+      "nodeDiffs": [],
+      "edgeDiffs": []
+    }
+  }
+}

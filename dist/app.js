@@ -16,7 +16,12 @@ const places=[
  {id:'stadium',name:'Bryant–Denny Stadium',category:'Stadium · Athletics',type:'building',x:172,y:613,aliases:'bryant denny stadium saban football'},
  {id:'paty',name:'Paty Hall',category:'Residence hall',type:'home',x:292,y:293,aliases:'paty dorm'},
  {id:'lakeside',name:'Lakeside Dining',category:'Dining · North campus',type:'building',x:302,y:242,aliases:'lakeside dining food'},
- {id:'rec',name:'Student Recreation Center',category:'Recreation · East campus',type:'building',x:746,y:441,aliases:'rec recreation gym fitness'}
+ {id:'rec',name:'Student Recreation Center',category:'Recreation · East campus',type:'building',x:746,y:441,aliases:'rec recreation gym fitness'},
+ /* Batch 1 — SPEC-place-catalog-batch-1 (illustrative footprint alignment; not survey-verified) */
+ {id:'rodgers',name:'Rodgers Library',category:'Library · Science & Engineering',type:'book',x:455,y:345,aliases:'rodgers rogers science engineering library'},
+ {id:'bruno',name:'Bruno Business Library',category:'Library · Culverhouse',type:'book',x:212,y:448,aliases:'bruno business library bashinsky'},
+ {id:'fresh-food',name:'Fresh Food Company',category:'Dining · Engineering quad',type:'building',x:368,y:402,aliases:'fresh food company foods ffc'},
+ {id:'alston',name:'Alston Hall',category:'Culverhouse College of Business',type:'building',x:222,y:428,aliases:'alston mary hewell'}
 ];
 const routes=[
  {id:'campus',name:'Campus Loop',color:'#758c6d',direction:'Via Engineering & the Quad',points:[[344,179],[318,190],[312,215],[322,244],[350,251],[383,253],[422,273],[455,293],[473,320],[475,371],[465,397],[426,418],[404,440],[397,481],[399,552],[360,545],[309,537],[248,527],[251,475],[264,442],[294,443],[300,402],[302,361],[308,332],[315,287],[319,258],[310,224],[303,198],[344,179]],stops:[{i:0,name:'Presidential Village'},{i:3,name:'Lakeside'},{i:9,name:'Engineering'},{i:12,name:'Transit Hub'},{i:16,name:'The Quad — South'},{i:18,name:'Bidgood'},{i:20,name:'Gorgas'},{i:22,name:'Student Center'},{i:24,name:'Paty'}]},
@@ -29,14 +34,25 @@ routes.push(
  {id:'coleman',name:'Coleman Connector',color:'#ad344a',direction:'Via Coleman & South Campus',points:[[294,443],[355,449],[400,448],[399,552],[403,628],[401,685],[445,687],[488,694],[512,727],[520,766],[501,806],[445,815],[401,812],[400,748],[370,685],[320,681],[270,675],[235,671],[217,575],[248,527],[251,475],[264,442],[294,443]],stops:[{i:0,name:'Gorgas'},{i:2,name:'Transit Hub'},{i:5,name:'Bryant Drive'},{i:8,name:'Coleman North'},{i:10,name:'Coleman Coliseum'},{i:12,name:'South Campus'},{i:17,name:'Tutwiler North'},{i:18,name:'Stadium'},{i:20,name:'Bidgood'}]}
 );
 places.push({id:'coleman',name:'Coleman Coliseum',category:'Athletics · South campus',type:'building',x:503,y:780,aliases:'coleman basketball gymnastics'}, {id:'bryce',name:'Bryce Campus',category:'North-east campus',type:'building',x:585,y:254,aliases:'bryce performing arts'});
+places.push(
+ {id:'student-services',name:'Student Services Center',category:'Student services',type:'building',x:288,y:338,aliases:'student services center ssc'},
+ {id:'burke',name:'Burke Hall',category:'Residence hall',type:'home',x:378,y:605,aliases:'burke hall dorm residence'},
+ {id:'foster',name:'Foster Auditorium',category:'Auditorium · South Quad',type:'building',x:302,y:548,aliases:'foster auditorium'},
+ {id:'lloyd',name:'Lloyd Hall',category:'Academic · The Quad',type:'building',x:348,y:488,aliases:'lloyd hall'},
+ {id:'lakeside-hall',name:'Lakeside Hall',category:'Residence hall · North campus',type:'home',x:268,y:228,aliases:'lakeside hall dorm residential residence'}
+);
 /** POI marker anchors (AD-POI-4). Map-space points placed on the SVG `buildings` footprints
  *  (interior points chosen by eye against the 2014 reference artwork), deliberately separate from
  *  routing entrances. `check:true` = footprint match is uncertain. Illustrative only, not survey-verified. */
+/** AD-GEO / Batch 1: marker = building-footprint visual center (not entrance, not road). Illustrative. */
 const poiVisual={
- presidential:{x:350,y:151,check:true},'student-center':{x:319,y:363},bidgood:{x:238,y:462},gorgas:{x:309,y:462},
- shelby:{x:441,y:329},serc:{x:387,y:380,check:true},tutwiler:{x:226,y:702},ridgecrest:{x:213,y:282,check:true},
- stadium:{x:198,y:623},paty:{x:291,y:295,check:true},lakeside:{x:302,y:242},rec:{x:740,y:441},
- coleman:{x:502,y:789},bryce:{x:556,y:287,check:true}
+ presidential:{x:350,y:151,check:true},'student-center':{x:318,y:358},bidgood:{x:232,y:472},gorgas:{x:311,y:448},
+ shelby:{x:438,y:328},serc:{x:398,y:382,check:true},tutwiler:{x:226,y:702},ridgecrest:{x:213,y:282,check:true},
+ stadium:{x:175,y:620},paty:{x:291,y:295,check:true},lakeside:{x:302,y:242},rec:{x:740,y:441},
+ coleman:{x:502,y:789},bryce:{x:556,y:287,check:true},
+ rodgers:{x:452,y:358},bruno:{x:208,y:468},'fresh-food':{x:362,y:398},alston:{x:228,y:438},
+ 'student-services':{x:285,y:335},burke:{x:415,y:612},foster:{x:295,y:598},lloyd:{x:372,y:500},
+ 'lakeside-hall':{x:255,y:225,check:true}
 };
 places.forEach(p=>{p.visual=poiVisual[p.id]});
 
