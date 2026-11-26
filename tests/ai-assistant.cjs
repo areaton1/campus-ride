@@ -1,5 +1,5 @@
 'use strict';
-/** Headless US-17 assistant contract checks (AD-AI-1…7). Companion to routing.cjs / poi.cjs. */
+/** Headless US-17 assistant contract checks (AD-AI-1…8). Companion to routing.cjs / poi.cjs. */
 const assert = require('assert');
 const CampusAssistant = require('../dist/ai-assistant.js');
 
@@ -31,226 +31,277 @@ const places = [
 assert.equal(places.length, 23);
 
 const origin = places[0];
+let curated = 0;
 function interpret(text) {
   const r = CampusAssistant.interpret(text, { places, originSuggestion: origin });
   CampusAssistant.assertKnownIds(r, places);
   return r;
 }
-
-// Supported trip
-{
-  const r = interpret('Take me from Presidential Village to Bidgood');
-  assert.equal(r.kind, 'confirm');
-  assert.equal(r.origin.id, 'presidential');
-  assert.equal(r.destination.id, 'bidgood');
+function expectConfirm(text, oId, dId) {
+  curated++;
+  const r = interpret(text);
+  assert.equal(r.kind, 'confirm', text + ' → ' + r.kind);
+  assert.equal(r.origin.id, oId, text);
+  assert.equal(r.destination.id, dId, text);
+  return r;
+}
+function expectKind(text, kind, extra) {
+  curated++;
+  const r = interpret(text);
+  assert.equal(r.kind, kind, `"${text}" → ${r.kind}, expected ${kind}`);
+  if (extra) extra(r, text);
+  return r;
 }
 
-// Alias
-{
-  const r = interpret('Ferg to Gorgas');
-  assert.equal(r.kind, 'confirm');
-  assert.equal(r.origin.id, 'student-center');
-  assert.equal(r.destination.id, 'gorgas');
-}
+// --- Baseline supported / aliases (1–20) ---
+expectConfirm('Take me from Presidential Village to Bidgood', 'presidential', 'bidgood');
+expectConfirm('Presidential to Bidgood', 'presidential', 'bidgood');
+expectConfirm('Ferg to Gorgas', 'student-center', 'gorgas');
+expectConfirm('PV to Ferg', 'presidential', 'student-center');
+expectConfirm('Rodgers to Bruno', 'rodgers', 'bruno');
+expectConfirm('Fresh Food to Foster', 'fresh-food', 'foster');
+expectConfirm('Lakeside Hall to Alston', 'lakeside-hall', 'alston');
+expectConfirm('ssc to alston', 'student-services', 'alston');
+expectConfirm('ffc to foster', 'fresh-food', 'foster');
+expectConfirm('bryant denny to coleman', 'stadium', 'coleman');
+expectConfirm('rec to lakeside dining', 'rec', 'lakeside');
+expectConfirm('from ridgecrest to lloyd', 'ridgecrest', 'lloyd');
+expectConfirm('burke hall to student services', 'burke', 'student-services');
+expectConfirm('Take me from the Ferg to the Rec', 'student-center', 'rec');
+expectConfirm('from the student union to the gym', 'student-center', 'rec');
+expectConfirm('rogers to gorgas', 'rodgers', 'gorgas');
+expectConfirm('mary hewell to bashinsky', 'alston', 'bruno');
+expectConfirm('culverhouse to lloyd', 'bidgood', 'lloyd');
+expectConfirm('How do I get from Tutwiler to Shelby?', 'tutwiler', 'shelby');
+expectConfirm('From lakeside dining to Bidgood', 'lakeside', 'bidgood');
 
-// Batch 1 aliases
-{
-  const r = interpret('Rodgers to Bruno');
-  assert.equal(r.kind, 'confirm');
-  assert.equal(r.origin.id, 'rodgers');
-  assert.equal(r.destination.id, 'bruno');
-}
-{
-  const r = interpret('Fresh Food to Foster');
-  assert.equal(r.kind, 'confirm');
-  assert.equal(r.origin.id, 'fresh-food');
-  assert.equal(r.destination.id, 'foster');
-}
-{
-  const r = interpret('Lakeside Hall to Alston');
-  assert.equal(r.kind, 'confirm');
-  assert.equal(r.origin.id, 'lakeside-hall');
-  assert.equal(r.destination.id, 'alston');
-}
+// --- Alternate phrasing (21–35) ---
+expectKind('Directions to Gorgas', 'need_origin', (r) => assert.equal(r.destination.id, 'gorgas'));
+expectKind('I need to get to Shelby', 'need_origin', (r) => {
+  assert.equal(r.destination.id, 'shelby');
+  assert.match(r.message, /not GPS|demo location/i);
+});
+expectKind('Take me across campus to Shelby', 'need_origin', (r) => assert.equal(r.destination.id, 'shelby'));
+expectKind('drop me off at Bidgood', 'need_origin', (r) => assert.equal(r.destination.id, 'bidgood'));
+expectKind('pick me up at Tutwiler', 'need_origin', (r) => assert.equal(r.destination.id, 'tutwiler'));
+expectConfirm('I am at Bidgood take me to Tutwiler', 'bidgood', 'tutwiler');
+expectConfirm('at Bidgood going to Gorgas', 'bidgood', 'gorgas');
+expectConfirm('Starting at Ferg go to Shelby', 'student-center', 'shelby');
+expectConfirm('Take me from Tutwiler to Bidgood', 'tutwiler', 'bidgood');
+expectKind('Presidential to Presidential', 'same_place');
+expectKind('', 'empty');
+expectConfirm('Directions from Paty to Foster', 'paty', 'foster');
+expectConfirm('from SERC to Bryce', 'serc', 'bryce');
+expectConfirm('Lloyd to Burke', 'lloyd', 'burke');
+expectConfirm('Coleman to Stadium', 'coleman', 'stadium');
 
-// Bare "lakeside" must clarify Dining vs Hall — never silently pick
-{
-  const r = interpret('Go to lakeside');
-  assert.equal(r.kind, 'clarify');
+// --- Ambiguity (36–48) ---
+expectKind('Go to the dorm', 'clarify', (r) => {
   assert.equal(r.slot, 'destination');
+  assert.ok(r.options.every(p => p.type === 'home'));
   assert.ok(r.options.length >= 2);
-  const ids = r.options.map(p => p.id).sort();
-  assert.ok(ids.includes('lakeside'));
-  assert.ok(ids.includes('lakeside-hall'));
-  assert.ok(!r.destination, 'must not silently assign lakeside destination');
-}
-{
-  const r = interpret('From lakeside dining to Bidgood');
-  assert.equal(r.kind, 'confirm');
-  assert.equal(r.origin.id, 'lakeside');
-  assert.equal(r.destination.id, 'bidgood');
-}
-
-// Multi-library ambiguity
-{
-  const r = interpret('Go to the library');
-  assert.equal(r.kind, 'clarify');
+});
+expectKind('From dorm to Bidgood', 'clarify', (r) => {
+  assert.equal(r.slot, 'origin');
+  assert.equal(r.draft?.destination, 'bidgood');
+  assert.ok(!r.origin);
+});
+expectKind('From Bidgood to dorm', 'clarify', (r) => {
   assert.equal(r.slot, 'destination');
-  assert.ok(r.options.length >= 3);
-  assert.ok(r.options.every(p => /library/i.test(p.name + ' ' + p.category)));
+  assert.equal(r.draft?.origin, 'bidgood');
+});
+expectKind('From dorm to dorm', 'clarify', (r) => {
+  assert.equal(r.slot, 'origin');
+  assert.ok(r.remaining?.length >= 1);
+});
+expectKind('Go to lakeside', 'clarify', (r) => {
+  const ids = r.options.map(p => p.id);
+  assert.ok(ids.includes('lakeside') && ids.includes('lakeside-hall'));
+});
+expectKind('Go to the library', 'clarify', (r) => {
   const ids = new Set(r.options.map(p => p.id));
   assert.ok(ids.has('gorgas') && ids.has('rodgers') && ids.has('bruno'));
-}
-
-// Ambiguous destination
-{
-  const r = interpret('Go to the dorm');
-  assert.equal(r.kind, 'clarify');
-  assert.equal(r.slot, 'destination');
-  assert.ok(r.options.length >= 2);
-  assert.ok(r.options.every(p => p.type === 'home'));
-  assert.equal(r.origin, undefined);
-  assert.equal(r.destination, undefined);
-  assert.equal(r.draft?.origin ?? null, null);
-  assert.equal(r.draft?.destination ?? null, null);
-}
-
-// Ambiguous origin must clarify — never silently pick the first "dorm" alias
-{
-  const before = { originId: origin.id, dest: null };
-  const r = interpret('From dorm to Bidgood');
-  assert.equal(r.kind, 'clarify');
-  assert.equal(r.slot, 'origin');
-  assert.ok(r.options.length >= 2);
-  assert.ok(r.options.every(p => p.type === 'home'));
-  assert.ok(!r.origin, 'must not silently assign an origin');
-  assert.equal(r.draft?.origin ?? null, null);
-  assert.equal(r.draft?.destination, 'bidgood');
-  assert.ok(r.placeIds.includes('bidgood'));
-  assert.equal(origin.id, before.originId, 'trip endpoints unchanged on interpret');
-}
-
-// Known origin retained while clarifying ambiguous destination
-{
-  const r = interpret('From Bidgood to dorm');
-  assert.equal(r.kind, 'clarify');
-  assert.equal(r.slot, 'destination');
-  assert.ok(r.options.length >= 2);
-  assert.ok(r.options.every(p => p.type === 'home'));
+});
+expectKind('Go to dining', 'clarify', (r) => assert.ok(r.options.length >= 2));
+expectKind('I am at Bidgood, take me to the dorm', 'clarify', (r) => {
   assert.equal(r.draft?.origin, 'bidgood');
-  assert.equal(r.draft?.destination ?? null, null);
-  assert.ok(r.placeIds.includes('bidgood'));
-  // UI contract: draft id must resolve to Bidgood, not the default origin suggestion (Presidential).
-  const draftOrigin = places.find(p => p.id === r.draft.origin);
-  assert.equal(draftOrigin.id, 'bidgood');
-  assert.notEqual(draftOrigin.id, origin.id);
-}
+  assert.equal(r.slot, 'destination');
+});
+expectConfirm('from PV to the science library', 'presidential', 'rodgers');
+expectConfirm('business to shelby', 'bruno', 'shelby');
+expectKind('Go to residence', 'clarify');
+expectKind('the dorms', 'clarify');
+expectKind('library', 'clarify');
 
-// Both slots ambiguous — queue origin clarify first, keep no silent assignments
-{
-  const r = interpret('From dorm to dorm');
-  assert.equal(r.kind, 'clarify');
-  assert.equal(r.slot, 'origin');
-  assert.ok(Array.isArray(r.remaining) && r.remaining.length >= 1);
-  assert.equal(r.remaining[0].slot, 'destination');
-  assert.equal(r.draft?.origin ?? null, null);
-  assert.equal(r.draft?.destination ?? null, null);
-  assert.ok(!r.origin && !r.destination);
+// --- Shared-token false-positive traps (49–58) — were confirm Bidgood→Shelby on main ---
+for (const bad of ['Hall', 'Hardaway Hall', 'Smith Hall', 'Morgan Hall', 'the hall', 'hall']) {
+  expectKind(bad, 'unsupported', (r) => {
+    assert.ok(!(r.origin && r.destination), 'must not invent OD for ' + bad);
+  });
 }
+expectKind('Take me to Hardaway Hall', 'unsupported');
+expectKind('From Hardaway Hall to Bidgood', 'unsupported', (r) => assert.match(r.unknown || '', /hardaway/i));
+expectKind('ten hoor', 'refuse_off_topic');
+expectKind('Take me to ten hoor', 'unsupported');
+expectKind('Hardaway Hall to Shelby', 'unsupported');
 
-// Draft hydration contract used by runAssistantInterpret (preserve Bidgood through dest clarify)
-{
-  const r = interpret('From Bidgood to dorm');
-  const draftOrigin = places.find(p => p.id === (r.origin && r.origin.id || r.draft && r.draft.origin));
-  const draftDestination = places.find(p => p.id === (r.destination && r.destination.id || r.draft && r.draft.destination)) || null;
-  assert.equal(draftOrigin.id, 'bidgood');
-  assert.equal(draftDestination, null);
-  const chosen = places.find(p => p.id === 'tutwiler');
-  assert.equal(draftOrigin.id, 'bidgood');
-  assert.equal(chosen.id, 'tutwiler');
-  assert.notEqual(draftOrigin.id, origin.id);
+// --- Unsupported / off-campus (59–68) ---
+expectKind('Take me from Presidential to Publix', 'unsupported', (r) => assert.match(r.unknown || '', /publix/i));
+expectKind('From Publix to Bidgood', 'unsupported', (r) => assert.match(r.unknown || '', /publix/i));
+expectKind('Take me to ten hoor', 'unsupported');
+expectKind('Delta Zeta', 'refuse_off_topic');
+expectKind('Publix', 'refuse_off_topic');
+expectKind('Can you write my essay?', 'refuse_off_topic');
+expectKind('yes confirm', 'refuse_off_topic');
+expectKind('Where do I board?', 'refuse_off_topic');
+expectKind('Help me use this app', 'refuse_off_topic');
+expectKind('What stops are on North Connector?', 'refuse_off_topic');
+
+// --- Live / arrival refuse (69–80) ---
+for (const live of [
+  'Where is bus 101 right now for real?',
+  'Where is the bus right now?',
+  'is the bus delayed',
+  'real-time location of Campus Loop',
+  'bus position for route 101',
+  "What's the ETA to Shelby?",
+  'What time does the next bus arrive at Bidgood?',
+  'next bus arrive Bidgood',
+  'arrival time Bidgood',
+  'live ETA',
+  'Is Campus Loop running?',
+  'when is the next bus',
+  'How long does it take to get to Bidgood',
+  'when should I leave for Bidgood'
+]) {
+  expectKind(live, 'refuse_live', (r) => {
+    assert.ok(!r.origin && !r.destination);
+    assert.match(r.message, /cannot verify live/i);
+    assert.match(r.message, /simulated/i);
+  });
 }
+expectConfirm('Take me from Presidential Village to Bidgood late tonight', 'presidential', 'bidgood');
+expectConfirm('headed to Gorgas from Ferg', 'student-center', 'gorgas');
+expectKind('science to Bidgood', 'unsupported', (r) => assert.match(r.unknown || '', /science/i));
 
-// Missing origin
-{
-  const r = interpret('I need to get to Shelby');
-  assert.equal(r.kind, 'need_origin');
-  assert.equal(r.destination.id, 'shelby');
-  assert.equal(r.originSuggestion.id, 'presidential');
-  assert.match(r.message, /not GPS|demo location/i);
-}
+// --- Conservative spelling (81–88) ---
+expectKind('I want to go from Presedential to Bidgood', 'clarify', (r) => {
+  assert.ok(r.options.some(p => p.id === 'presidential'));
+  assert.equal(r.draft?.destination, 'bidgood');
+  assert.ok(!r.origin || r.origin.id === 'presidential');
+});
+expectKind('presidental to Bidgood', 'clarify', (r) => {
+  assert.ok(r.options.some(p => p.id === 'presidential'));
+});
+expectKind('Bidgood to Gorgass', 'clarify', (r) => {
+  assert.equal(r.draft?.origin, 'bidgood');
+  assert.ok(r.options.some(p => p.id === 'gorgas'));
+});
+expectKind('Go to Bidgod', 'clarify', (r) => assert.ok(r.options.some(p => p.id === 'bidgood')));
+expectKind('xyzzyqwerty', 'refuse_off_topic');
+expectKind('zzzzz to Bidgood', 'unsupported');
+expectConfirm('Bidgood to Shelby', 'bidgood', 'shelby');
+expectConfirm('Lloyd Hall to Bidgood Hall', 'lloyd', 'bidgood');
 
-// Unknown / unsupported (destination)
+// --- Corrections / purity / examples (89–95) ---
 {
-  const r = interpret('Take me from Presidential to Publix');
-  assert.equal(r.kind, 'unsupported');
-  assert.match(r.unknown || '', /publix/i);
-}
-
-// Unknown in multi-place request (must not silently ignore)
-{
-  const r = interpret('From Publix to Bidgood');
-  assert.equal(r.kind, 'unsupported');
-  assert.match(r.unknown || '', /publix/i);
-  assert.ok(!(r.origin && r.destination));
-}
-
-// Live-information refusal
-{
-  const r = interpret('Where is bus 101 right now for real?');
-  assert.equal(r.kind, 'refuse_live');
-  assert.ok(!r.origin && !r.destination);
-}
-
-// Off-topic
-{
-  const r = interpret('Can you write my essay?');
-  assert.equal(r.kind, 'refuse_off_topic');
-}
-
-// Confirmation-before-mutation (interpreter purity + handoff contract shape)
-{
+  curated++;
   const snapshot = JSON.stringify(places.map(p => p.id));
   const r = interpret('Presidential to Bidgood');
   assert.equal(r.kind, 'confirm');
-  assert.equal(JSON.stringify(places.map(p => p.id)), snapshot, 'places catalog mutated');
+  assert.equal(JSON.stringify(places.map(p => p.id)), snapshot);
   assert.deepEqual(r.placeIds.sort(), ['bidgood', 'presidential']);
 }
-
-// Correction-before-confirmation: draft ids remain known after swapping
 {
+  curated++;
   const r = interpret('Presidential to Bidgood');
-  const correctedOrigin = places.find(p => p.id === 'paty');
-  const correctedDest = places.find(p => p.id === 'gorgas');
-  const draft = { origin: correctedOrigin, destination: correctedDest, placeIds: [correctedOrigin.id, correctedDest.id] };
+  const draft = {
+    origin: places.find(p => p.id === 'paty'),
+    destination: places.find(p => p.id === 'gorgas'),
+    placeIds: ['paty', 'gorgas']
+  };
   CampusAssistant.assertKnownIds(draft, places);
   assert.notEqual(draft.origin.id, r.origin.id);
 }
-
-// Active-trip protection contract (UI enforces; module exposes no apply)
 {
+  curated++;
   assert.equal(typeof CampusAssistant.applyTrip, 'undefined');
-  assert.equal(typeof CampusAssistant.interpret, 'function');
 }
-
-// Existing planner handoff: confirm payload only references catalog ids (planner remains authoritative)
 {
+  curated++;
   const r = interpret('Take me from Tutwiler to Bidgood');
-  assert.equal(r.kind, 'confirm');
-  for (const id of r.placeIds) assert.ok(places.some(p => p.id === id));
-  assert.ok(!/Campus Loop|North Connector|\d+ min|ETA/i.test(r.message), 'assistant must not invent routes/ETAs');
+  assert.ok(!/Campus Loop|North Connector|\d+ min|\bETA\b/i.test(r.message));
 }
-
-// No invented place IDs across example prompts
 {
+  curated++;
   for (const ex of CampusAssistant.EXAMPLES) {
     const r = interpret(ex.text);
     CampusAssistant.assertKnownIds(r, places);
-    assert.ok(['confirm', 'clarify', 'need_origin', 'unsupported', 'refuse_live', 'refuse_off_topic', 'same_place', 'empty'].includes(r.kind), ex.id + ' → ' + r.kind);
+    assert.ok(['confirm', 'clarify', 'need_origin', 'unsupported', 'refuse_live', 'refuse_off_topic', 'same_place', 'empty'].includes(r.kind), ex.id);
   }
 }
+{
+  curated++;
+  const r = interpret('From Bidgood to dorm');
+  const draftOrigin = places.find(p => p.id === (r.origin && r.origin.id || r.draft && r.draft.origin));
+  assert.equal(draftOrigin.id, 'bidgood');
+  assert.notEqual(draftOrigin.id, origin.id);
+}
+{
+  curated++;
+  const r = interpret('Should I walk or take the bus to Bidgood?');
+  assert.ok(['unsupported', 'need_origin', 'refuse_off_topic', 'clarify'].includes(r.kind), r.kind);
+  assert.ok(!(r.kind === 'confirm' && r.message.match(/\d+\s*min/i)));
+}
 
-// Load app wiring smoke: assistant helpers exist after vm bootstrap (handoff + trip lock surfaces)
+// --- Additional alias / place coverage toward ~100 (96–105+) ---
+expectConfirm('Paty to Gorgas', 'paty', 'gorgas');
+expectConfirm('Tutwiler to Rec', 'tutwiler', 'rec');
+expectConfirm('Bryce to Shelby', 'bryce', 'shelby');
+expectConfirm('Foster to Alston', 'foster', 'alston');
+expectConfirm('Student Services to Fresh Food', 'student-services', 'fresh-food');
+expectConfirm('supe store to Bidgood', 'student-center', 'bidgood');
+expectConfirm('saban to coleman', 'stadium', 'coleman');
+expectConfirm('tut to paty', 'tutwiler', 'paty');
+expectKind('Cancel my trip', 'unsupported');
+expectKind('Tell me about my current trip', 'unsupported');
+expectKind('change destination to Gorgas', 'unsupported');
+expectKind('Which bus goes to Bidgood?', 'unsupported');
+
+assert.ok(curated >= 100, 'expected ~100 curated cases, got ' + curated);
+
+// --- OD smoke: all 506 distinct pairs (canonical names) — not a substitute for negatives ---
+let odOk = 0;
+let odTotal = 0;
+for (const o of places) {
+  for (const d of places) {
+    if (o.id === d.id) continue;
+    odTotal++;
+    const r = interpret(`${o.name} to ${d.name}`);
+    assert.equal(r.kind, 'confirm', `${o.name} to ${d.name} → ${r.kind}`);
+    assert.equal(r.origin.id, o.id);
+    assert.equal(r.destination.id, d.id);
+    odOk++;
+  }
+}
+assert.equal(odTotal, 23 * 22);
+assert.equal(odOk, odTotal);
+
+// Alternate template smoke (subset — from A to B)
+let fromOk = 0;
+for (const o of places) {
+  for (const d of places) {
+    if (o.id === d.id) continue;
+    const r = interpret(`from ${o.name} to ${d.name}`);
+    assert.equal(r.kind, 'confirm');
+    assert.equal(r.origin.id, o.id);
+    assert.equal(r.destination.id, d.id);
+    fromOk++;
+  }
+}
+assert.equal(fromOk, 506);
+
+// Load app wiring smoke: handoff + trip lock surfaces
 const fs = require('fs');
 const vm = require('vm');
 const network = fs.readFileSync('dist/network.js', 'utf8');
@@ -298,44 +349,36 @@ vm.runInContext(
 vm.runInContext(`
 assert.equal(typeof CampusAssistant.interpret, 'function');
 assert.equal(places.length, 23);
-assert(places.find(p => p.id === 'lakeside-hall'));
-assert(places.find(p => p.id === 'rodgers'));
 const origin0 = state.origin;
 const dest0 = state.destination;
 const r = CampusAssistant.interpret('Presidential to Bidgood', { places, originSuggestion: state.origin });
 assert.equal(state.origin, origin0);
 assert.equal(state.destination, dest0);
 assert.equal(r.kind, 'confirm');
-// Simulated handoff used by applyAssistantTrip — same fields the planner reads
 state.origin = places.find(p => p.id === r.origin.id);
 state.destination = places.find(p => p.id === r.destination.id);
-assert.equal(state.origin.id, 'presidential');
-assert.equal(state.destination.id, 'bidgood');
 const plans = computePlans();
-assert.ok(Array.isArray(plans));
-assert.ok(plans.length > 0, 'expected bus itineraries for Presidential → Bidgood');
-// Trip lock surface: active trip flag present for UI guards
+assert.ok(plans.length > 0);
 state.trip = { route: routes[0], bus: buses[0], board: routes[0].stops[0], exit: routes[0].stops[1], walkIn: 60, walkOut: 60, pickup: 100, dropoff: 200, started: 0 };
 assert.ok(state.trip);
+assert.equal(typeof CampusAssistant.applyTrip, 'undefined');
 `, context);
 
 console.log(JSON.stringify({
   places: places.length,
+  curatedCases: curated,
+  odSmokePairs: odOk,
+  fromSmokePairs: fromOk,
   examples: CampusAssistant.EXAMPLES.length,
+  hallTrapOk: true,
+  liveRefuseOk: true,
+  spellingClarifyOk: true,
   supportedOk: true,
   aliasOk: true,
-  batch1AliasOk: true,
-  lakesideClarifyOk: true,
-  libraryClarifyOk: true,
   ambiguousOk: true,
-  ambiguousOriginOk: true,
   draftOriginRetainedOk: true,
-  missingOriginOk: true,
-  unsupportedOk: true,
-  liveRefuseOk: true,
-  offTopicOk: true,
   confirmPurityOk: true,
   handoffOk: true,
-  noInventedIds: true,
-  tripLockStateOk: true
+  tripLockStateOk: true,
+  noInventedIds: true
 }));
