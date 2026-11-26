@@ -61,8 +61,8 @@ Student opens Ask Trip Assistant → sees simulated disclaimer → uses an examp
 
 Approved on `fix/ai-assistant-robustness` after the pre-final audit. Extends the scripted interpreter only:
 
-- Shared generic tokens (e.g. bare `hall`) must not invent a full trip; unsupported `* Hall` names stay unsupported.
-- Live / delay / next-bus / ETA / “is … running” phrasing → `refuse_live`, with copy that distinguishes unavailable live data from simulated planner results after confirmation.
+- Shared generic tokens (e.g. bare `hall`) must not invent a full trip; unsupported `* Hall` names stay unsupported. Weak unique name tokens (`village`, `company`, etc.) must not silently resolve to Presidential / Fresh Food; only allowlisted suffixes (`stadium`, `coliseum`, `auditorium`) may unique-resolve.
+- Live / delay / next-bus / ETA / “is … running” phrasing → `refuse_live`, with copy that distinguishes unavailable live data from simulated planner results after confirmation. Duration phrasing (`how long…`) refuses unless an explicit `from … to …` trip is present (then confirm/handoff — still no chat-invented times).
 - Conservative spelling suggestions against the existing catalog only; always clarify/confirm — never silent replace.
 - Automated coverage: curated regression cases plus OD smoke across all 23×22 pairs (smoke only).
 - Still out of scope: chat ETAs/route dumps, app FAQ, current-trip Q&A, transfers, new places, external AI.

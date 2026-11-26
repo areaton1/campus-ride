@@ -1,10 +1,6 @@
 # Deferred work
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-ai-assistant-robustness.md`
-  summary: Tighten unique-name generic tokens (village/company/auditorium) to clarify instead of auto-resolve
-  evidence: Blind Hunter found Go to village → Presidential; AD-AI-8 focused on hall false-positives; unique-name escape remains intentional for stadium/coliseum.
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-ai-assistant-robustness.md`
   summary: Extend EXAMPLE chips for hall trap / ETA refuse / spelling clarify demos
   evidence: CAP-2 still uses pre-audit examples; cosmetic demo gap, not a parser defect.
 

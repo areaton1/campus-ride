@@ -23,9 +23,15 @@
     'engineering', 'residence', 'residential', 'dorm', 'dorms'
   ]);
 
-  const LIVE_RE = /\b(live|real[\s-]?time|right now|currently|delay|delayed|running late|service (status|alert)|out of service|where is (the )?(bus|crimson)|bus (location|position|eta)|is (the )?(bus|crimson|route|[a-z]+(?:\s+[a-z]+){0,3}) running|next bus|arrival times?|\beta\b|when does (the )?bus|when is (the )?next|what time does (the )?next|when should i leave|how long (does it take|to get))\b/i;
+  /* Always refuse — live status / next-bus / ETA asks (never invent times in chat). */
+  const LIVE_CORE_RE = /\b(live|real[\s-]?time|right now|currently|delay|delayed|running late|service (status|alert)|out of service|where is (the )?(bus|crimson)|bus (location|position|eta)|is (the )?(bus|crimson|route|[a-z]+(?:\s+[a-z]+){0,3}) running|next bus|arrival times?|\beta\b|estimated (travel )?times?|travel times?|when does (the )?bus|when is (the )?next|what time does (the )?next)\b/i;
+  /* Duration/leave timing: refuse only when there is no explicit from…to trip to hand off. */
+  const LIVE_DURATION_RE = /\b(when should i leave|how long (does it take|to get))\b/i;
+  const LIVE_RE = LIVE_CORE_RE; /* exported alias for core live detection */
   const OFF_TOPIC_RE = /\b(essay|homework|write (my|an)|weather|forecast|recipe|stock|crypto|jailbreak|password|hack|dating|girlfriend|boyfriend)\b/i;
   const TRIP_CUE_RE = /\b(to|from|take me|get (me )?to|go(ing)? to|ride|bus|trip|directions?|how (do|can) i (get|go)|drop( me)? off|pick( me)? up|i am at|i'm at|starting at|headed to)\b/i;
+  /* Unique name-token resolve allowed only for these strong suffixes (not village/company/etc.). */
+  const UNIQUE_NAME_ALLOW = new Set(['stadium', 'coliseum', 'auditorium']);
 
   const EXAMPLES = [
     { id: 'pv-bidgood', label: 'Presidential → Bidgood', text: 'Take me from Presidential Village to Bidgood' },
@@ -279,11 +285,11 @@
     for (const h of strong) normalize(h.phrase).split(' ').forEach(w => covered.add(w));
     let unknownTokens = leftover.filter(w => !covered.has(w));
 
-    /* Unique name tokens (e.g. only one "Stadium") may resolve even if the word is otherwise generic.
-       Never expand bare "hall" into every * Hall building — that invented Bidgood→Shelby trips. */
+    /* Unique name tokens (e.g. only one "Stadium") may resolve when allowlisted.
+       Weak generics like village/company must not silently become Presidential/Fresh Food. */
     if (!matched.length) {
       const words = normalize(segmentText).split(' ').filter(w => w && !STOP.has(w));
-      if (words.length === 1 && words[0] !== 'hall') {
+      if (words.length === 1 && UNIQUE_NAME_ALLOW.has(words[0])) {
         const named = uniqueNameTokenPlaces(words[0], places);
         if (named.length === 1) {
           matched = named;
@@ -393,7 +399,10 @@
       };
     }
 
-    if (LIVE_RE.test(raw) || LIVE_RE.test(norm)) {
+    const liveCore = LIVE_CORE_RE.test(raw) || LIVE_CORE_RE.test(norm);
+    const liveDuration = LIVE_DURATION_RE.test(raw) || LIVE_DURATION_RE.test(norm);
+    const explicitFromTo = /\bfrom\s+.+\s+to\s+.+/.test(norm);
+    if (liveCore || (liveDuration && !explicitFromTo)) {
       return {
         kind: 'refuse_live',
         message: 'I cannot verify live bus positions, delays, arrivals, or current service. This prototype does not provide live transit data. After you confirm a supported trip, the planner shows simulated routes, stops, and times — not official Crimson Ride information.',

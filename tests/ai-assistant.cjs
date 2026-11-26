@@ -128,7 +128,8 @@ expectKind('I am at Bidgood, take me to the dorm', 'clarify', (r) => {
   assert.equal(r.slot, 'destination');
 });
 expectConfirm('from PV to the science library', 'presidential', 'rodgers');
-expectConfirm('business to shelby', 'bruno', 'shelby');
+expectConfirm('bruno to shelby', 'bruno', 'shelby');
+expectKind('business to shelby', 'unsupported');
 expectKind('Go to residence', 'clarify');
 expectKind('the dorms', 'clarify');
 expectKind('library', 'clarify');
@@ -183,6 +184,12 @@ for (const live of [
 expectConfirm('Take me from Presidential Village to Bidgood late tonight', 'presidential', 'bidgood');
 expectConfirm('headed to Gorgas from Ferg', 'student-center', 'gorgas');
 expectKind('science to Bidgood', 'unsupported', (r) => assert.match(r.unknown || '', /science/i));
+expectKind('Go to village', 'unsupported');
+expectKind('Go to company', 'unsupported');
+expectConfirm('How long does it take to get from Burke to the Rec?', 'burke', 'rec');
+expectKind('When will the next bus arrive?', 'refuse_live');
+expectKind('Is the bus actually running right now?', 'refuse_live');
+expectKind('Can you show me the estimated travel time?', 'refuse_live');
 
 // --- Conservative spelling (81–88) ---
 expectKind('I want to go from Presedential to Bidgood', 'clarify', (r) => {
