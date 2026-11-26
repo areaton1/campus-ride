@@ -10,7 +10,7 @@ sources:
   - Verified baseline on main @ 85d2577 (post Features 1–2)
 ---
 
-> **Canonical contract (approved for implementation 2026-11-18).** Implement on `feature/us-17-ai-assistant` only. Do not stage `map-src/`, the Elicitation Report PDF, or research-branch map work. Do not silently edit course `docs/`.
+> **Canonical contract (approved for implementation 2026-11-18; robustness AD-AI-8 on 2026-11-26).** Original ship used `feature/us-17-ai-assistant`. Robustness work uses `fix/ai-assistant-robustness` only. Do not stage `map-src/`, the Elicitation Report PDF, or research-branch map work. Do not silently edit course `docs/`.
 
 # US-17 — Simulated AI Trip Assistant
 
@@ -57,6 +57,16 @@ Students struggle with multi-step trip entry. The course requires an AI-feature 
 
 Student opens Ask Trip Assistant → sees simulated disclaimer → uses an example or types “Presidential to Bidgood” → confirms → lands in the same ride-results UI as manual entry → Follow This Bus still works. Ambiguous “dorm”, “Publix”, and “where is the bus live?” produce clarification / unsupported / refuse responses without mutating endpoints. Active trip blocks assistant apply. Routing and POI tests unchanged at the Feature 2 baseline.
 
+## Robustness addendum (AD-AI-8, 2026-11-26)
+
+Approved on `fix/ai-assistant-robustness` after the pre-final audit. Extends the scripted interpreter only:
+
+- Shared generic tokens (e.g. bare `hall`) must not invent a full trip; unsupported `* Hall` names stay unsupported. Weak unique name tokens (`village`, `company`, etc.) must not silently resolve to Presidential / Fresh Food; only allowlisted suffixes (`stadium`, `coliseum`, `auditorium`) may unique-resolve.
+- Live / delay / next-bus / ETA / “is … running” phrasing → `refuse_live`, with copy that distinguishes unavailable live data from simulated planner results after confirmation. Duration phrasing (`how long…`) refuses unless an explicit `from … to …` trip is present (then confirm/handoff — still no chat-invented times).
+- Conservative spelling suggestions against the existing catalog only; always clarify/confirm — never silent replace.
+- Automated coverage: curated regression cases plus OD smoke across all 23×22 pairs (smoke only).
+- Still out of scope: chat ETAs/route dumps, app FAQ, current-trip Q&A, transfers, new places, external AI.
+
 ## Architecture decisions
 
-See Decision Log **AD-AI-1 … AD-AI-7** (technical architecture decisions for this feature). These are **not** graded MIS 430 “BMAD Decision Log override” entries; do not fabricate override records.
+See Decision Log **AD-AI-1 … AD-AI-8** (technical architecture decisions for this feature). These are **not** graded MIS 430 “BMAD Decision Log override” entries; do not fabricate override records.
